@@ -14,15 +14,12 @@ void setup() {
   // Try to connect to Wi-Fi
   //wifiConnection = establishWifiConnection();
 
-  uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
-  uint8_t sk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES];
-
-  
-  if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
-    Serial.println("Keys generated.");
-  }
-  
-
+  char* publicKeyBuffer = (char*) malloc(PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES*sizeof(char));
+  strcpy_P(publicKeyBuffer, dilithiumPublicKey);
+  Serial.println("Server' Public Key:");
+  Serial.println(publicKeyBuffer);
+  Serial.println();
+  //free(publicKeyBuffer);
 }
 
 void loop() {
@@ -73,11 +70,67 @@ bool connectToServer() {
   // Send message to server
   client.println("AuthRequest");
   delay(1000);
+  // Receive a message in a format of
+  // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
+  String reply;
   while (client.available()) {
     char c = client.read();
+    reply.concat(c);
     Serial.write(c);
    }
   Serial.println();
   client.println("Ack.");
+  processAuthReply(reply);
   return true;
+}
+
+// Example usage in your code:
+void processAuthReply(String reply) {
+  String control;
+  unsigned long timestamp;
+  String sig;
+
+  parseAuthReply(reply, control, timestamp, sig);
+
+  Serial.println("Parsed Values:");
+  Serial.print("Control word: ");
+  Serial.println(control);
+  Serial.print("UNIX timestamp: ");
+  Serial.println(timestamp);
+  Serial.print("Signature: ");
+  Serial.println(sig);
+  
+}
+
+// Function to parse the AuthReply message into three variables.
+// The expected message format is:
+// "AuthReply:1744750583|signature:5D5056F7BEB494287A396EEA50E2CFDA..."
+void parseAuthReply(const String &reply, String &controlWord, unsigned long &unixStamp, String &signature) {
+  // Find the first colon: separates the control word from the timestamp.
+  int colonIndex = reply.indexOf(':');
+  if (colonIndex == -1) {
+    Serial.println("Error: colon not found.");
+    return;
+  }
+  // Extract the control word (e.g. "AuthReply")
+  controlWord = reply.substring(0, colonIndex);
+
+  // Find the pipe character that separates the timestamp from the signature.
+  int pipeIndex = reply.indexOf('|');
+  if (pipeIndex == -1) {
+    Serial.println("Error: pipe character not found.");
+    return;
+  }
+  // Extract timestamp string from after the colon to the pipe
+  String timestampStr = reply.substring(colonIndex + 1, pipeIndex);
+  unixStamp = timestampStr.toInt();  // Convert to numeric value
+
+  // Now find the colon that comes after "signature"
+  int secondColon = reply.indexOf(':', pipeIndex);
+  if (secondColon == -1) {
+    Serial.println("Error: second colon not found.");
+    return;
+  }
+  // Extract signature (everything after the second colon)
+  signature = reply.substring(secondColon + 1);
 }

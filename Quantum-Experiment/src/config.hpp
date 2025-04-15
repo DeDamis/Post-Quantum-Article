@@ -21,3 +21,8 @@ uint32_t WiFi_retry_delay = 10000;
 
 // Attempts to connect to the TCP server
 bool connectToServer();
+
+// Function to parse the AuthReply message into three variables.
+void parseAuthReply(const String &, String &, unsigned long &, String &);
+
+void processAuthReply(String);
