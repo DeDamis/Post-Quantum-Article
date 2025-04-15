@@ -1,6 +1,15 @@
 #include <Arduino.h>
 #include "config.hpp"
 #include "credentials.hpp"
+#include "ML_DSA_PublicKey.hpp"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "api.h"  // PQCLEAN_MLDSA65_CLEAN_* function declarations
+#ifdef __cplusplus
+}
+#endif
 
 // hard-coded server’s IP address and port
 const char *serverIP = "192.168.50.44"; // Example IP
@@ -16,6 +25,16 @@ void setup() {
 
   // Try to connect to Wi-Fi
   //wifiConnection = establishWifiConnection();
+
+  uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+  uint8_t sk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES];
+
+  /*
+  if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
+    Serial.println("Keys generated.");
+  }
+  */
+
 }
 
 void loop() {

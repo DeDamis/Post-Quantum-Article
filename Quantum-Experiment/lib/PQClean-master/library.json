@@ -1,0 +1,17 @@
+{
+  "name": "PQCleanMLDSA65",
+  "version": "1.0.0",
+  "description": "ML-DSA-65 PQClean-based library",
+  "build": {
+    "flags": [
+      "-I common",
+      "-I crypto_sign/ml-dsa-65/clean"
+    ],
+    "srcFilter": [
+      "+<common/*.c>",
+      "-<common/randombytes.c>",
+      "+<crypto_sign/ml-dsa-65/clean/*.c>"
+    ],
+    "libArchive": false
+  }
+}
