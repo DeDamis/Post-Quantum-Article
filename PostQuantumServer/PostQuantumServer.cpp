@@ -19,7 +19,7 @@ extern "C" {
 }
 #endif
 
-#include "Helpers.hpp"  // Our custom helper functions
+#include "Helpers.hpp"  // Our custom helper functions (bytesToHex, etc.)
 
 using namespace std;
 
@@ -137,16 +137,45 @@ int main()
             cout << "Message from client: " << buffer << endl;
 
             // 7. Process the received message
-            // If "AuthRequest" is received, respond with "AuthReply:[timestamp]"
             if (strcmp(buffer, "AuthRequest") == 0) {
-                // Get the current UNIX timestamp
+                // Build the message we want to sign
                 time_t now = time(nullptr);
-                string reply = "AuthReply:" + to_string(now);
+                string replyPlain = "AuthReply:" + to_string(now);
 
-                // Send the response back to the client
-                int sendResult = send(clientSocket, reply.c_str(), static_cast<int>(reply.size()), 0);
+                // Sign the reply with the secret key
+                // We store the result in signature[] with length sigLen
+                uint8_t signature[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+                size_t sigLen = 0;
+
+                int signResult = PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature(
+                    signature,          // output buffer for the signature
+                    &sigLen,            // (out) the signature length
+                    reinterpret_cast<const uint8_t*>(replyPlain.data()),
+                    replyPlain.size(),  // message size
+                    sk                  // secret key
+                );
+
+                if (signResult != 0) {
+                    cerr << "Error: Could not sign the message with ML-DSA." << endl;
+                    break;
+                }
+
+                // Convert signature to hex to send easily
+                string signatureHex = bytesToHex(signature, sigLen);
+
+                // Combine the original reply and the signature in one message
+                // You could do something like "AuthReply:<timestamp>||sig:<signatureHex>"
+                // or use JSON, or separate them in any protocol format you want.
+                // For example:
+                string combinedMessage = replyPlain + "|signature:" + signatureHex;
+
+                // Send the combined reply+signature to the client
+                int sendResult = send(clientSocket,
+                    combinedMessage.c_str(),
+                    static_cast<int>(combinedMessage.size()),
+                    0);
                 if (sendResult == SOCKET_ERROR) {
-                    cerr << "Error: Failed to send AuthReply. Code: "
+                    cerr << "Error: Failed to send signed AuthReply. Code: "
                         << WSAGetLastError() << endl;
                     break; // End communication with this client
                 }
