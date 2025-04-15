@@ -26,3 +26,5 @@ bool connectToServer();
 void parseAuthReply(const String &, String &, unsigned long &, String &);
 
 void processAuthReply(String);
+
+bool verifyAuthReply(const String &controlWord, unsigned long timestamp, const String &signatureHex);

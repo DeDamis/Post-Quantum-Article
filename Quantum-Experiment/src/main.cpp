@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "WifiManagement.hpp"
+#include "helpers.hpp"
 #include "ML_DSA_PublicKey.hpp"
 
 // hard-coded server’s IP address and port
@@ -14,12 +15,12 @@ void setup() {
   // Try to connect to Wi-Fi
   //wifiConnection = establishWifiConnection();
 
-  char* publicKeyBuffer = (char*) malloc(PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES*sizeof(char));
+  char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
   strcpy_P(publicKeyBuffer, dilithiumPublicKey);
   Serial.println("Server' Public Key:");
   Serial.println(publicKeyBuffer);
   Serial.println();
-  //free(publicKeyBuffer);
+  free(publicKeyBuffer);
 }
 
 void loop() {
@@ -73,11 +74,14 @@ bool connectToServer() {
   // Receive a message in a format of
   // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
   String reply;
-  while (client.available()) {
-    char c = client.read();
-    reply.concat(c);
-    Serial.write(c);
-   }
+  unsigned long start = millis();
+  while ((millis() - start) < 5000) {  // 5 second timeout
+    while (client.available()) {
+      char c = client.read();
+      reply += c;
+      start = millis();  // reset timeout when data is coming in
+    }
+  }
   Serial.println();
   client.println("Ack.");
   processAuthReply(reply);
@@ -99,7 +103,7 @@ void processAuthReply(String reply) {
   Serial.println(timestamp);
   Serial.print("Signature: ");
   Serial.println(sig);
-  
+  verifyAuthReply(control, timestamp, sig);
 }
 
 // Function to parse the AuthReply message into three variables.
@@ -133,4 +137,51 @@ void parseAuthReply(const String &reply, String &controlWord, unsigned long &uni
   }
   // Extract signature (everything after the second colon)
   signature = reply.substring(secondColon + 1);
+}
+
+bool verifyAuthReply(const String &controlWord, unsigned long timestamp, const String &signatureHex) {
+  if (controlWord != "AuthReply") {
+    Serial.println("Control word mismatch.");
+    return false;
+  }
+
+  // Construct the message string: "AuthReply:<timestamp>"
+  String message = "AuthReply:" + String(timestamp);
+  const uint8_t *msg = reinterpret_cast<const uint8_t*>(message.c_str());
+  size_t msgLen = message.length();
+
+  Serial.print("Expected signature length: ");
+  Serial.println(PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES * 2);
+  Serial.print("Actual signature length: ");
+  Serial.println(signatureHex.length());
+
+  // Decode signature from hex string
+  static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+  if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
+    Serial.println("Signature hex decode failed.");
+    return false;
+  }
+  Serial.println("Signature hex decode OK.");
+
+  char* pkHex = (char*) malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
+  strcpy_P(pkHex, dilithiumPublicKey);
+
+  static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+  if (!hexToBytes(String(pkHex), pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
+    Serial.println("Public key hex decode failed.");
+    return false;
+  }
+  Serial.println("Public Key hex decode OK.");
+
+  // Verify the signature
+  int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), msg, msgLen, pk);
+  if (ret == 0) {
+    Serial.println("Signature is VALID.");
+    return true;
+  } else {
+    Serial.println("Signature is INVALID.");
+    return false;
+  }
+
+  free(pkHex);
 }
