@@ -1,0 +1,73 @@
+﻿// PostQuantumServer.cpp: Definuje vstupní bod pro aplikaci.
+//
+
+#include "PostQuantumServer.h"
+
+#include <iostream>
+#include <cstring>      // Pro memset
+#include <sys/socket.h> // Pro socket, bind, listen, accept
+#include <netinet/in.h> // Pro sockaddr_in
+#include <arpa/inet.h>  // Pro htons, inet_addr
+#include <unistd.h>     // Pro close
+
+int main() {
+    // 1. Vytvoření socketu
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket < 0) {
+        std::cerr << "Chyba: Nepodařilo se vytvořit socket." << std::endl;
+        return 1;
+    }
+
+    // 2. Přiřazení (bind) socketu na konkrétní IP a port
+    sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    // INADDR_ANY znamená, že server bude naslouchat na všech dostupných IP rozhraních
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    // Například port 8080
+    serverAddr.sin_port = htons(8080);
+
+    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
+        std::cerr << "Chyba: Nepodařilo se provést bind." << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    // 3. Nastavení do pasivního režimu – server bude naslouchat
+    if (listen(serverSocket, 5) < 0) {
+        std::cerr << "Chyba: Nepodařilo se naslouchat (listen)." << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    std::cout << "Server naslouchá na portu 8080..." << std::endl;
+
+    // 4. Přijetí příchozího spojení
+    sockaddr_in clientAddr;
+    socklen_t clientLen = sizeof(clientAddr);
+    int clientSocket = accept(serverSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
+    if (clientSocket < 0) {
+        std::cerr << "Chyba: Nepodařilo se přijmout spojení." << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    std::cout << "Připojil se klient!" << std::endl;
+
+    // 5. Čtení dat od klienta
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
+    int bytesRead = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    if (bytesRead < 0) {
+        std::cerr << "Chyba: Nepodařilo se přečíst data od klienta." << std::endl;
+    }
+    else {
+        std::cout << "Zpráva od klienta: " << buffer << std::endl;
+    }
+
+    // 6. Ukončení spojení s klientem
+    close(clientSocket);
+    close(serverSocket);
+
+    return 0;
+}
