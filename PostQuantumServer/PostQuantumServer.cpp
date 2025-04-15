@@ -11,10 +11,29 @@
 #include <cstring>
 #include <ctime>   // for time() to obtain a UNIX timestamp
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "api.h"
+
+#ifdef __cplusplus
+}
+#endif
+
+
 using namespace std;
 
 int main()
 {
+
+    uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+    uint8_t sk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES];
+
+    if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
+        cout << "Keys generated:" << endl;
+    }
+
     // 1. WinSock initialization
     WSADATA wsaData;
     int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
