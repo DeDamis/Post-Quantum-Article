@@ -32,3 +32,4 @@
 *.app
 /PostQuantumServer/.vs
 /PostQuantumServer/out
+Quantum-Experiment/src/credentials.hpp
