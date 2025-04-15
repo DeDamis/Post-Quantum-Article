@@ -17,7 +17,7 @@ add_subdirectory(PQClean-master)
 add_executable(PostQuantumServer
     PostQuantumServer.cpp
     PostQuantumServer.h
-)
+ "Helpers.cpp")
 
 # 3) Optionally set the C++ standard
 if (CMAKE_VERSION VERSION_GREATER 3.12)

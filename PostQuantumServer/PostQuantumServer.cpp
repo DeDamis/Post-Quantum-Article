@@ -9,29 +9,50 @@
 #include <sstream>
 #include <iostream>
 #include <cstring>
-#include <ctime>   // for time() to obtain a UNIX timestamp
+#include <ctime>    // for time() to obtain a UNIX timestamp
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "api.h"
-
+#include "api.h"  // PQCLEAN_MLDSA65_CLEAN_* function declarations
 #ifdef __cplusplus
 }
 #endif
 
+#include "Helpers.hpp"  // Our custom helper functions
 
 using namespace std;
 
 int main()
 {
-
+    // Prepare buffers for keys
     uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
     uint8_t sk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES];
 
-    if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
-        cout << "Keys generated:" << endl;
+    // Attempt to load existing keys from files
+    bool pkLoaded = loadKeyFromFile("PublicKeyDilithium.txt", pk, sizeof(pk));
+    bool skLoaded = loadKeyFromFile("SecretKeyDilithium.txt", sk, sizeof(sk));
+
+    if (pkLoaded && skLoaded) {
+        cout << "Existing keys loaded from files." << endl;
+    }
+    else {
+        // If files do not exist or fail to load, generate a new keypair
+        cout << "No existing keys found. Generating new keys..." << endl;
+        if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
+            // Save them
+            if (!saveKeyToFile("PublicKeyDilithium.txt", pk, sizeof(pk)) ||
+                !saveKeyToFile("SecretKeyDilithium.txt", sk, sizeof(sk))) {
+                cerr << "Error: Could not save generated keys to files." << endl;
+            }
+            else {
+                cout << "Keys generated and saved to PublicKeyDilithium.txt/SecretKeyDilithium.txt" << endl;
+            }
+        }
+        else {
+            cerr << "Key generation failed!" << endl;
+            return 1;
+        }
     }
 
     // 1. WinSock initialization
@@ -78,8 +99,7 @@ int main()
     cout << "Server is listening on port 8080..." << endl;
 
     // 5. Main loop to accept connections and then handle communication
-    while (true)
-    {
+    while (true) {
         // Accept an incoming connection
         sockaddr_in clientAddr;
         int clientLen = sizeof(clientAddr);
@@ -94,8 +114,7 @@ int main()
         cout << "A client has connected!" << endl;
 
         // 6. Communicate with the client as long as they send data or remain connected
-        while (true)
-        {
+        while (true) {
             char buffer[1024];
             memset(buffer, 0, sizeof(buffer));
 
@@ -136,15 +155,15 @@ int main()
                 // If it's not "AuthRequest," just display the message in the console
                 cout << "Message from client: " << buffer << endl;
             }
-            // After processing, go back to the beginning of the while loop to read the next message
+            // After processing, go back to read the next message
         }
 
-        // Close the socket for the current client, then go back to waiting for accept() again
+        // Close the socket for the current client, then loop back for a new accept()
         closesocket(clientSocket);
         cout << "Connection with client ended." << endl;
     }
 
-    // If accepting new connections somehow ends (e.g., a signal), we arrive here:
+    // If accepting new connections somehow ends, we arrive here:
     closesocket(serverSocket);
     WSACleanup();
     return 0;
