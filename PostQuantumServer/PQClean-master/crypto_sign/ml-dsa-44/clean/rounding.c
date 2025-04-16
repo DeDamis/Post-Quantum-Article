@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_power2round
+* Name:        PQCLEAN_MLDSA44_CLEAN_power2round
 *
 * Description: For finite field element a, compute a0, a1 such that
 *              a mod^+ Q = a1*2^D + a0 with -2^{D-1} < a0 <= 2^{D-1}.
@@ -14,7 +14,7 @@
 *
 * Returns a1.
 **************************************************/
-int32_t PQCLEAN_MLDSA65_CLEAN_power2round(int32_t *a0, int32_t a)  {
+int32_t PQCLEAN_MLDSA44_CLEAN_power2round(int32_t *a0, int32_t a)  {
     int32_t a1;
 
     a1 = (a + (1 << (D - 1)) - 1) >> D;
@@ -23,7 +23,7 @@ int32_t PQCLEAN_MLDSA65_CLEAN_power2round(int32_t *a0, int32_t a)  {
 }
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_decompose
+* Name:        PQCLEAN_MLDSA44_CLEAN_decompose
 *
 * Description: For finite field element a, compute high and low bits a0, a1 such
 *              that a mod^+ Q = a1*ALPHA + a0 with -ALPHA/2 < a0 <= ALPHA/2 except
@@ -36,12 +36,12 @@ int32_t PQCLEAN_MLDSA65_CLEAN_power2round(int32_t *a0, int32_t a)  {
 *
 * Returns a1.
 **************************************************/
-int32_t PQCLEAN_MLDSA65_CLEAN_decompose(int32_t *a0, int32_t a) {
+int32_t PQCLEAN_MLDSA44_CLEAN_decompose(int32_t *a0, int32_t a) {
     int32_t a1;
 
     a1  = (a + 127) >> 7;
-    a1  = (a1 * 1025 + (1 << 21)) >> 22;
-    a1 &= 15;
+    a1  = (a1 * 11275 + (1 << 23)) >> 24;
+    a1 ^= ((43 - a1) >> 31) & a1;
 
     *a0  = a - a1 * 2 * GAMMA2;
     *a0 -= (((Q - 1) / 2 - *a0) >> 31) & Q;
@@ -49,7 +49,7 @@ int32_t PQCLEAN_MLDSA65_CLEAN_decompose(int32_t *a0, int32_t a) {
 }
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_make_hint
+* Name:        PQCLEAN_MLDSA44_CLEAN_make_hint
 *
 * Description: Compute hint bit indicating whether the low bits of the
 *              input element overflow into the high bits.
@@ -59,7 +59,7 @@ int32_t PQCLEAN_MLDSA65_CLEAN_decompose(int32_t *a0, int32_t a) {
 *
 * Returns 1 if overflow.
 **************************************************/
-unsigned int PQCLEAN_MLDSA65_CLEAN_make_hint(int32_t a0, int32_t a1) {
+unsigned int PQCLEAN_MLDSA44_CLEAN_make_hint(int32_t a0, int32_t a1) {
     if (a0 > GAMMA2 || a0 < -GAMMA2 || (a0 == -GAMMA2 && a1 != 0)) {
         return 1;
     }
@@ -68,7 +68,7 @@ unsigned int PQCLEAN_MLDSA65_CLEAN_make_hint(int32_t a0, int32_t a1) {
 }
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_use_hint
+* Name:        PQCLEAN_MLDSA44_CLEAN_use_hint
 *
 * Description: Correct high bits according to hint.
 *
@@ -77,16 +77,22 @@ unsigned int PQCLEAN_MLDSA65_CLEAN_make_hint(int32_t a0, int32_t a1) {
 *
 * Returns corrected high bits.
 **************************************************/
-int32_t PQCLEAN_MLDSA65_CLEAN_use_hint(int32_t a, unsigned int hint) {
+int32_t PQCLEAN_MLDSA44_CLEAN_use_hint(int32_t a, unsigned int hint) {
     int32_t a0, a1;
 
-    a1 = PQCLEAN_MLDSA65_CLEAN_decompose(&a0, a);
+    a1 = PQCLEAN_MLDSA44_CLEAN_decompose(&a0, a);
     if (hint == 0) {
         return a1;
     }
 
     if (a0 > 0) {
-        return (a1 + 1) & 15;
+        if (a1 == 43) {
+            return 0;
+        }
+        return a1 + 1;
     }
-    return (a1 - 1) & 15;
+    if (a1 == 0) {
+        return 43;
+    }
+    return a1 - 1;
 }

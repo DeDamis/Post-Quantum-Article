@@ -14,7 +14,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "api.h"  // PQCLEAN_MLDSA65_CLEAN_* function declarations
+#include "api.h"  // PQCLEAN_MLDSA44_CLEAN_* function declarations
 #ifdef __cplusplus
 }
 #endif
@@ -26,8 +26,8 @@ using namespace std;
 int main()
 {
 	// Prepare buffers for keys
-	uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
-	uint8_t sk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES];
+	uint8_t pk[PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES];
+	uint8_t sk[PQCLEAN_MLDSA44_CLEAN_CRYPTO_SECRETKEYBYTES];
 
 	// Attempt to load existing keys from files
 	bool pkLoaded = loadKeyFromFile("PublicKeyDilithium.txt", pk, sizeof(pk));
@@ -39,7 +39,7 @@ int main()
 	else {
 		// If files do not exist or fail to load, generate a new keypair
 		cout << "No existing keys found. Generating new keys..." << endl;
-		if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
+		if (PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(pk, sk) == 0) {
 			// Save them
 			if (!saveKeyToFile("PublicKeyDilithium.txt", pk, sizeof(pk)) ||
 				!saveKeyToFile("SecretKeyDilithium.txt", sk, sizeof(sk))) {
@@ -145,10 +145,10 @@ int main()
 
 					// Sign the reply with the secret key
 					// We store the result in signature[] with length sigLen
-					uint8_t signature[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+					uint8_t signature[PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES];
 					size_t sigLen = 0;
 
-					int signResult = PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature(
+					int signResult = PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature(
 						signature,          // output buffer for the signature
 						&sigLen,            // (out) the signature length
 						reinterpret_cast<const uint8_t*>(replyPlain.data()),

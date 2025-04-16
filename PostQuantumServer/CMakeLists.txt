@@ -24,8 +24,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
     set_property(TARGET PostQuantumServer PROPERTY CXX_STANDARD 20)
 endif()
 
-# 4) Link the library (ml_dsa_65_clean) we define in the PQClean-master subdirectory
-target_link_libraries(PostQuantumServer PRIVATE ml_dsa_65_clean)
+# 4) Link the library (ml_dsa_44_clean) we define in the PQClean-master subdirectory
+target_link_libraries(PostQuantumServer PRIVATE ml_dsa_44_clean)
 
 # If you need any special include directory beyond what's set in the subdirectory,
 # add it here. For example:

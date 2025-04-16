@@ -9,18 +9,18 @@
 #include <stdint.h>
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair
+* Name:        PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair
 *
 * Description: Generates public and private key.
 *
 * Arguments:   - uint8_t *pk: pointer to output public key (allocated
-*                             array of PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES bytes)
+*                             array of PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES bytes)
 *              - uint8_t *sk: pointer to output private key (allocated
-*                             array of PQCLEAN_MLDSA65_CLEAN_CRYPTO_SECRETKEYBYTES bytes)
+*                             array of PQCLEAN_MLDSA44_CLEAN_CRYPTO_SECRETKEYBYTES bytes)
 *
 * Returns 0 (success)
 **************************************************/
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
     uint8_t seedbuf[2 * SEEDBYTES + CRHBYTES];
     uint8_t tr[TRBYTES];
     const uint8_t *rho, *rhoprime, *key;
@@ -38,30 +38,30 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
     key = rhoprime + CRHBYTES;
 
     /* Expand matrix */
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_expand(mat, rho);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_expand(mat, rho);
 
     /* Sample short vectors s1 and s2 */
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_uniform_eta(&s1, rhoprime, 0);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_uniform_eta(&s2, rhoprime, L);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_uniform_eta(&s1, rhoprime, 0);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_uniform_eta(&s2, rhoprime, L);
 
     /* Matrix-vector multiplication */
     s1hat = s1;
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_ntt(&s1hat);
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_pointwise_montgomery(&t1, mat, &s1hat);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_reduce(&t1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_invntt_tomont(&t1);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_ntt(&s1hat);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_pointwise_montgomery(&t1, mat, &s1hat);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_reduce(&t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_invntt_tomont(&t1);
 
     /* Add error vector s2 */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_add(&t1, &t1, &s2);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_add(&t1, &t1, &s2);
 
     /* Extract t1 and write public key */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_caddq(&t1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_power2round(&t1, &t0, &t1);
-    PQCLEAN_MLDSA65_CLEAN_pack_pk(pk, rho, &t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_caddq(&t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_power2round(&t1, &t0, &t1);
+    PQCLEAN_MLDSA44_CLEAN_pack_pk(pk, rho, &t1);
 
     /* Compute H(rho, t1) and write secret key */
-    shake256(tr, TRBYTES, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES);
-    PQCLEAN_MLDSA65_CLEAN_pack_sk(sk, rho, tr, key, &t0, &s1, &s2);
+    shake256(tr, TRBYTES, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES);
+    PQCLEAN_MLDSA44_CLEAN_pack_sk(sk, rho, tr, key, &t0, &s1, &s2);
 
     return 0;
 }
@@ -71,7 +71,7 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
 *
 * Description: Computes signature.
 *
-* Arguments:   - uint8_t *sig:   pointer to output signature (of length PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)
+* Arguments:   - uint8_t *sig:   pointer to output signature (of length PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES)
 *              - size_t *siglen: pointer to output length of signature
 *              - uint8_t *m:     pointer to message to be signed
 *              - size_t mlen:    length of message
@@ -81,7 +81,7 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
 *
 * Returns 0 (success) or -1 (context string too long)
 **************************************************/
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature_ctx(uint8_t *sig,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature_ctx(uint8_t *sig,
         size_t *siglen,
         const uint8_t *m,
         size_t mlen,
@@ -107,7 +107,7 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature_ctx(uint8_t *sig,
     rnd = key + SEEDBYTES;
     mu = rnd + RNDBYTES;
     rhoprime = mu + CRHBYTES;
-    PQCLEAN_MLDSA65_CLEAN_unpack_sk(rho, tr, key, &t0, &s1, &s2, sk);
+    PQCLEAN_MLDSA44_CLEAN_unpack_sk(rho, tr, key, &t0, &s1, &s2, sk);
 
     /* Compute mu = CRH(tr, 0, ctxlen, ctx, msg) */
     mu[0] = 0;
@@ -125,26 +125,26 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature_ctx(uint8_t *sig,
     shake256(rhoprime, CRHBYTES, key, SEEDBYTES + RNDBYTES + CRHBYTES);
 
     /* Expand matrix and transform vectors */
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_expand(mat, rho);
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_ntt(&s1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_ntt(&s2);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_ntt(&t0);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_expand(mat, rho);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_ntt(&s1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_ntt(&s2);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_ntt(&t0);
 
 rej:
     /* Sample intermediate vector y */
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_uniform_gamma1(&y, rhoprime, nonce++);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_uniform_gamma1(&y, rhoprime, nonce++);
 
     /* Matrix-vector multiplication */
     z = y;
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_ntt(&z);
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_pointwise_montgomery(&w1, mat, &z);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_reduce(&w1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_invntt_tomont(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_ntt(&z);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_pointwise_montgomery(&w1, mat, &z);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_reduce(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_invntt_tomont(&w1);
 
     /* Decompose w and call the random oracle */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_caddq(&w1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_decompose(&w1, &w0, &w1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_pack_w1(sig, &w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_caddq(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_decompose(&w1, &w0, &w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_pack_w1(sig, &w1);
 
     shake256_inc_init(&state);
     shake256_inc_absorb(&state, mu, CRHBYTES);
@@ -152,45 +152,45 @@ rej:
     shake256_inc_finalize(&state);
     shake256_inc_squeeze(sig, CTILDEBYTES, &state);
     shake256_inc_ctx_release(&state);
-    PQCLEAN_MLDSA65_CLEAN_poly_challenge(&cp, sig);
-    PQCLEAN_MLDSA65_CLEAN_poly_ntt(&cp);
+    PQCLEAN_MLDSA44_CLEAN_poly_challenge(&cp, sig);
+    PQCLEAN_MLDSA44_CLEAN_poly_ntt(&cp);
 
     /* Compute z, reject if it reveals secret */
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_pointwise_poly_montgomery(&z, &cp, &s1);
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_invntt_tomont(&z);
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_add(&z, &z, &y);
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_reduce(&z);
-    if (PQCLEAN_MLDSA65_CLEAN_polyvecl_chknorm(&z, GAMMA1 - BETA)) {
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_pointwise_poly_montgomery(&z, &cp, &s1);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_invntt_tomont(&z);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_add(&z, &z, &y);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_reduce(&z);
+    if (PQCLEAN_MLDSA44_CLEAN_polyvecl_chknorm(&z, GAMMA1 - BETA)) {
         goto rej;
     }
 
     /* Check that subtracting cs2 does not change high bits of w and low bits
      * do not reveal secret information */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_pointwise_poly_montgomery(&h, &cp, &s2);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_invntt_tomont(&h);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_sub(&w0, &w0, &h);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_reduce(&w0);
-    if (PQCLEAN_MLDSA65_CLEAN_polyveck_chknorm(&w0, GAMMA2 - BETA)) {
+    PQCLEAN_MLDSA44_CLEAN_polyveck_pointwise_poly_montgomery(&h, &cp, &s2);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_invntt_tomont(&h);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_sub(&w0, &w0, &h);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_reduce(&w0);
+    if (PQCLEAN_MLDSA44_CLEAN_polyveck_chknorm(&w0, GAMMA2 - BETA)) {
         goto rej;
     }
 
     /* Compute hints for w1 */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_pointwise_poly_montgomery(&h, &cp, &t0);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_invntt_tomont(&h);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_reduce(&h);
-    if (PQCLEAN_MLDSA65_CLEAN_polyveck_chknorm(&h, GAMMA2)) {
+    PQCLEAN_MLDSA44_CLEAN_polyveck_pointwise_poly_montgomery(&h, &cp, &t0);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_invntt_tomont(&h);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_reduce(&h);
+    if (PQCLEAN_MLDSA44_CLEAN_polyveck_chknorm(&h, GAMMA2)) {
         goto rej;
     }
 
-    PQCLEAN_MLDSA65_CLEAN_polyveck_add(&w0, &w0, &h);
-    n = PQCLEAN_MLDSA65_CLEAN_polyveck_make_hint(&h, &w0, &w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_add(&w0, &w0, &h);
+    n = PQCLEAN_MLDSA44_CLEAN_polyveck_make_hint(&h, &w0, &w1);
     if (n > OMEGA) {
         goto rej;
     }
 
     /* Write signature */
-    PQCLEAN_MLDSA65_CLEAN_pack_sig(sig, sig, &z, &h);
-    *siglen = PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES;
+    PQCLEAN_MLDSA44_CLEAN_pack_sig(sig, sig, &z, &h);
+    *siglen = PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES;
     return 0;
 }
 
@@ -200,7 +200,7 @@ rej:
 * Description: Compute signed message.
 *
 * Arguments:   - uint8_t *sm: pointer to output signed message (allocated
-*                             array with PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES + mlen bytes),
+*                             array with PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES + mlen bytes),
 *                             can be equal to m
 *              - size_t *smlen: pointer to output length of signed
 *                               message
@@ -212,7 +212,7 @@ rej:
 *
 * Returns 0 (success) or -1 (context string too long)
 **************************************************/
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_ctx(uint8_t *sm,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_ctx(uint8_t *sm,
         size_t *smlen,
         const uint8_t *m,
         size_t mlen,
@@ -223,9 +223,9 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_ctx(uint8_t *sm,
     size_t i;
 
     for (i = 0; i < mlen; ++i) {
-        sm[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES + mlen - 1 - i] = m[mlen - 1 - i];
+        sm[PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES + mlen - 1 - i] = m[mlen - 1 - i];
     }
-    ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature_ctx(sm, smlen, sm + PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES, mlen, ctx, ctxlen, sk);
+    ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature_ctx(sm, smlen, sm + PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES, mlen, ctx, ctxlen, sk);
     *smlen += mlen;
     return ret;
 }
@@ -245,7 +245,7 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_ctx(uint8_t *sm,
 *
 * Returns 0 if signature could be verified correctly and -1 otherwise
 **************************************************/
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
         size_t siglen,
         const uint8_t *m,
         size_t mlen,
@@ -263,20 +263,20 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
     polyveck t1, w1, h;
     shake256incctx state;
 
-    if (ctxlen > 255 || siglen != PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES) {
+    if (ctxlen > 255 || siglen != PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES) {
         return -1;
     }
 
-    PQCLEAN_MLDSA65_CLEAN_unpack_pk(rho, &t1, pk);
-    if (PQCLEAN_MLDSA65_CLEAN_unpack_sig(c, &z, &h, sig)) {
+    PQCLEAN_MLDSA44_CLEAN_unpack_pk(rho, &t1, pk);
+    if (PQCLEAN_MLDSA44_CLEAN_unpack_sig(c, &z, &h, sig)) {
         return -1;
     }
-    if (PQCLEAN_MLDSA65_CLEAN_polyvecl_chknorm(&z, GAMMA1 - BETA)) {
+    if (PQCLEAN_MLDSA44_CLEAN_polyvecl_chknorm(&z, GAMMA1 - BETA)) {
         return -1;
     }
 
     /* Compute CRH(H(rho, t1), msg) */
-    shake256(mu, TRBYTES, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES);
+    shake256(mu, TRBYTES, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES);
     shake256_inc_init(&state);
     shake256_inc_absorb(&state, mu, TRBYTES);
     mu[0] = 0;
@@ -289,25 +289,25 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
     shake256_inc_ctx_release(&state);
 
     /* Matrix-vector multiplication; compute Az - c2^dt1 */
-    PQCLEAN_MLDSA65_CLEAN_poly_challenge(&cp, c);
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_expand(mat, rho);
+    PQCLEAN_MLDSA44_CLEAN_poly_challenge(&cp, c);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_expand(mat, rho);
 
-    PQCLEAN_MLDSA65_CLEAN_polyvecl_ntt(&z);
-    PQCLEAN_MLDSA65_CLEAN_polyvec_matrix_pointwise_montgomery(&w1, mat, &z);
+    PQCLEAN_MLDSA44_CLEAN_polyvecl_ntt(&z);
+    PQCLEAN_MLDSA44_CLEAN_polyvec_matrix_pointwise_montgomery(&w1, mat, &z);
 
-    PQCLEAN_MLDSA65_CLEAN_poly_ntt(&cp);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_shiftl(&t1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_ntt(&t1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_pointwise_poly_montgomery(&t1, &cp, &t1);
+    PQCLEAN_MLDSA44_CLEAN_poly_ntt(&cp);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_shiftl(&t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_ntt(&t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_pointwise_poly_montgomery(&t1, &cp, &t1);
 
-    PQCLEAN_MLDSA65_CLEAN_polyveck_sub(&w1, &w1, &t1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_reduce(&w1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_invntt_tomont(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_sub(&w1, &w1, &t1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_reduce(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_invntt_tomont(&w1);
 
     /* Reconstruct w1 */
-    PQCLEAN_MLDSA65_CLEAN_polyveck_caddq(&w1);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_use_hint(&w1, &w1, &h);
-    PQCLEAN_MLDSA65_CLEAN_polyveck_pack_w1(buf, &w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_caddq(&w1);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_use_hint(&w1, &w1, &h);
+    PQCLEAN_MLDSA44_CLEAN_polyveck_pack_w1(buf, &w1);
 
     /* Call random oracle and verify challenge */
     shake256_inc_init(&state);
@@ -341,7 +341,7 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
 *
 * Returns 0 if signed message could be verified correctly and -1 otherwise
 **************************************************/
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_open_ctx(uint8_t *m,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_open_ctx(uint8_t *m,
         size_t *mlen,
         const uint8_t *sm,
         size_t smlen,
@@ -350,17 +350,17 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_open_ctx(uint8_t *m,
         const uint8_t *pk) {
     size_t i;
 
-    if (smlen < PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES) {
+    if (smlen < PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES) {
         goto badsig;
     }
 
-    *mlen = smlen - PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES;
-    if (PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(sm, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES, sm + PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES, *mlen, ctx, ctxlen, pk)) {
+    *mlen = smlen - PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES;
+    if (PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(sm, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES, sm + PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES, *mlen, ctx, ctxlen, pk)) {
         goto badsig;
     } else {
         /* All good, copy msg, return 0 */
         for (i = 0; i < *mlen; ++i) {
-            m[i] = sm[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES + i];
+            m[i] = sm[PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES + i];
         }
         return 0;
     }
@@ -375,33 +375,33 @@ badsig:
     return -1;
 }
 
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature(uint8_t *sig,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature(uint8_t *sig,
         size_t *siglen,
         const uint8_t *m,
         size_t mlen,
         const uint8_t *sk) {
-    return PQCLEAN_MLDSA65_CLEAN_crypto_sign_signature_ctx(sig, siglen, m, mlen, NULL, 0, sk);
+    return PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature_ctx(sig, siglen, m, mlen, NULL, 0, sk);
 }
 
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign(uint8_t *sm,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign(uint8_t *sm,
                                       size_t *smlen,
                                       const uint8_t *m,
                                       size_t mlen,
                                       const uint8_t *sk) {
-    return PQCLEAN_MLDSA65_CLEAN_crypto_sign_ctx(sm, smlen, m, mlen, NULL, 0, sk);
+    return PQCLEAN_MLDSA44_CLEAN_crypto_sign_ctx(sm, smlen, m, mlen, NULL, 0, sk);
 }
 
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(const uint8_t *sig,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(const uint8_t *sig,
         size_t siglen,
         const uint8_t *m,
         size_t mlen,
         const uint8_t *pk) {
-    return PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(sig, siglen, m, mlen, NULL, 0, pk);
+    return PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(sig, siglen, m, mlen, NULL, 0, pk);
 }
 
-int PQCLEAN_MLDSA65_CLEAN_crypto_sign_open(uint8_t *m,
+int PQCLEAN_MLDSA44_CLEAN_crypto_sign_open(uint8_t *m,
         size_t *mlen,
         const uint8_t *sm, size_t smlen,
         const uint8_t *pk) {
-    return PQCLEAN_MLDSA65_CLEAN_crypto_sign_open_ctx(m, mlen, sm, smlen, NULL, 0, pk);
+    return PQCLEAN_MLDSA44_CLEAN_crypto_sign_open_ctx(m, mlen, sm, smlen, NULL, 0, pk);
 }
