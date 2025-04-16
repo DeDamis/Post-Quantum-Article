@@ -111,7 +111,7 @@ bool connectToServer()
     if (index > 1) {
         Serial.println(F("Response OK."));
         client.println("Ack");
-        processAuthReply(response);
+        // processAuthReply(response);
     } else {
         Serial.println(F("Response error."));
     }
