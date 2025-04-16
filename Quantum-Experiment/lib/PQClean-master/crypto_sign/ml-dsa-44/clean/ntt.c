@@ -39,14 +39,14 @@ static const int32_t zetas[N] = {
 };
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_ntt
+* Name:        PQCLEAN_MLDSA44_CLEAN_ntt
 *
 * Description: Forward NTT, in-place. No modular reduction is performed after
 *              additions or subtractions. Output vector is in bitreversed order.
 *
 * Arguments:   - uint32_t p[N]: input/output coefficient array
 **************************************************/
-void PQCLEAN_MLDSA65_CLEAN_ntt(int32_t a[N]) {
+void PQCLEAN_MLDSA44_CLEAN_ntt(int32_t a[N]) {
     unsigned int len, start, j, k;
     int32_t zeta, t;
 
@@ -55,7 +55,7 @@ void PQCLEAN_MLDSA65_CLEAN_ntt(int32_t a[N]) {
         for (start = 0; start < N; start = j + len) {
             zeta = zetas[++k];
             for (j = start; j < start + len; ++j) {
-                t = PQCLEAN_MLDSA65_CLEAN_montgomery_reduce((int64_t)zeta * a[j + len]);
+                t = PQCLEAN_MLDSA44_CLEAN_montgomery_reduce((int64_t)zeta * a[j + len]);
                 a[j + len] = a[j] - t;
                 a[j] = a[j] + t;
             }
@@ -64,7 +64,7 @@ void PQCLEAN_MLDSA65_CLEAN_ntt(int32_t a[N]) {
 }
 
 /*************************************************
-* Name:        PQCLEAN_MLDSA65_CLEAN_invntt_tomont
+* Name:        PQCLEAN_MLDSA44_CLEAN_invntt_tomont
 *
 * Description: Inverse NTT and multiplication by Montgomery factor 2^32.
 *              In-place. No modular reductions after additions or
@@ -74,7 +74,7 @@ void PQCLEAN_MLDSA65_CLEAN_ntt(int32_t a[N]) {
 *
 * Arguments:   - uint32_t p[N]: input/output coefficient array
 **************************************************/
-void PQCLEAN_MLDSA65_CLEAN_invntt_tomont(int32_t a[N]) {
+void PQCLEAN_MLDSA44_CLEAN_invntt_tomont(int32_t a[N]) {
     unsigned int start, len, j, k;
     int32_t t, zeta;
     const int32_t f = 41978; // mont^2/256
@@ -87,12 +87,12 @@ void PQCLEAN_MLDSA65_CLEAN_invntt_tomont(int32_t a[N]) {
                 t = a[j];
                 a[j] = t + a[j + len];
                 a[j + len] = t - a[j + len];
-                a[j + len] = PQCLEAN_MLDSA65_CLEAN_montgomery_reduce((int64_t)zeta * a[j + len]);
+                a[j + len] = PQCLEAN_MLDSA44_CLEAN_montgomery_reduce((int64_t)zeta * a[j + len]);
             }
         }
     }
 
     for (j = 0; j < N; ++j) {
-        a[j] = PQCLEAN_MLDSA65_CLEAN_montgomery_reduce((int64_t)f * a[j]);
+        a[j] = PQCLEAN_MLDSA44_CLEAN_montgomery_reduce((int64_t)f * a[j]);
     }
 }

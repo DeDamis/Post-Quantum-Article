@@ -17,7 +17,7 @@ void setup()
     // wifiConnection = establishWifiConnection();
 
     /*
-    char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
+    char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
     strcpy_P(publicKeyBuffer, dilithiumPublicKey);
     Serial.println(F("Server' Public Key:");
     Serial.println(publicKeyBuffer);
@@ -111,7 +111,7 @@ bool connectToServer()
     if (index > 1) {
         Serial.println(F("Response OK."));
         client.println("Ack");
-        // processAuthReply(response);
+        processAuthReply(response);
     } else {
         Serial.println(F("Response error."));
     }
@@ -175,7 +175,7 @@ bool processAuthReply(char* reply)
     Serial.println(message);
 
     // Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
-    char* pkHex = (char*)malloc(((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1) * sizeof(char));
+    char* pkHex = (char*)malloc(((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1) * sizeof(char));
     if (!pkHex) {
         Serial.println(F("Failed to allocate memory for pkHex."));
         return false;
@@ -200,7 +200,7 @@ bool processAuthReply(char* reply)
 bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex)
 {
     size_t msgLen = strlen(message);
-    size_t expectedSigHexLen = PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES * 2;
+    size_t expectedSigHexLen = PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES * 2;
     if (strlen(signatureHex) != expectedSigHexLen) {
         Serial.print(F("Signature hex length mismatch. Expected: "));
         Serial.print(expectedSigHexLen);
@@ -208,33 +208,30 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         Serial.println(strlen(signatureHex));
         return false;
     }
-    static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
-    /*
-    uint8_t* sig = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES) * sizeof(uint8_t));
+
+    uint8_t* sig = (uint8_t*)malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES) * sizeof(uint8_t));
     if (!sig) {
         Serial.println(F("Failed to allocate memory for sig."));
         return false;
     }
-    */
-    if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
+
+    if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
         return false;
     }
-    static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
-    /*
-    uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
+
+    uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
     if (!pk) {
         Serial.println(F("Failed to allocate memory for pk."));
         return false;
     }
-        */
 
-    if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
+    if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));
         return false;
     }
 
-    int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
     free(sig);
     free(pk);
     return (ret == 0);

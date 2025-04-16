@@ -1,16 +1,16 @@
 {
-  "name": "PQCleanMLDSA65",
+  "name": "PQCleanMLDSA44",
   "version": "1.0.0",
-  "description": "ML-DSA-65 PQClean-based library",
+  "description": "ML-DSA-44 PQClean-based library",
   "build": {
     "flags": [
       "-I common",
-      "-I crypto_sign/ml-dsa-65/clean"
+      "-I crypto_sign/ml-dsa-44/clean"
     ],
     "srcFilter": [
       "+<common/*.c>",
       "-<common/randombytes.c>",
-      "+<crypto_sign/ml-dsa-65/clean/*.c>"
+      "+<crypto_sign/ml-dsa-44/clean/*.c>"
     ],
     "libArchive": false
   }
