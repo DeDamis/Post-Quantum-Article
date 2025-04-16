@@ -253,13 +253,13 @@ int PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
         size_t ctxlen,
         const uint8_t *pk) {
     unsigned int i;
-    uint8_t buf[K * POLYW1_PACKEDBYTES];
-    uint8_t rho[SEEDBYTES];
-    uint8_t mu[CRHBYTES];
-    uint8_t c[CTILDEBYTES];
-    uint8_t c2[CTILDEBYTES];
+    static uint8_t buf[K * POLYW1_PACKEDBYTES];
+    static uint8_t rho[SEEDBYTES];
+    static uint8_t mu[CRHBYTES];
+    static uint8_t c[CTILDEBYTES];
+    static uint8_t c2[CTILDEBYTES];
     poly cp;
-    polyvecl mat[K], z;
+    static polyvecl mat[K], z;
     polyveck t1, w1, h;
     shake256incctx state;
 

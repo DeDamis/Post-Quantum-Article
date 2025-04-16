@@ -726,7 +726,8 @@ void shake128(uint8_t *output, size_t outlen,
 void shake256(uint8_t *output, size_t outlen,
               const uint8_t *input, size_t inlen) {
     size_t nblocks = outlen / SHAKE256_RATE;
-    uint8_t t[SHAKE256_RATE];
+    static uint8_t t[SHAKE256_RATE];
+    //uint8_t* t = (uint8_t*)malloc((SHAKE256_RATE) * sizeof(uint8_t));
     shake256ctx s;
 
     shake256_absorb(&s, input, inlen);

@@ -24,6 +24,8 @@ void setup()
     Serial.println();
     free(publicKeyBuffer);
     */
+    Serial.print("Free heap: ");
+    Serial.println(ESP.getFreeHeap());
 }
 
 void loop()
@@ -206,22 +208,26 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         Serial.println(strlen(signatureHex));
         return false;
     }
-
+    static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+    /*
     uint8_t* sig = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES) * sizeof(uint8_t));
     if (!sig) {
         Serial.println(F("Failed to allocate memory for sig."));
         return false;
     }
+    */
     if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
         return false;
     }
-
+    static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+    /*
     uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
     if (!pk) {
         Serial.println(F("Failed to allocate memory for pk."));
         return false;
     }
+        */
 
     if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));

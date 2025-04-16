@@ -478,7 +478,7 @@ void PQCLEAN_MLDSA65_CLEAN_poly_uniform_gamma1(poly *a,
 void PQCLEAN_MLDSA65_CLEAN_poly_challenge(poly *c, const uint8_t seed[CTILDEBYTES]) {
     unsigned int i, b, pos;
     uint64_t signs;
-    uint8_t buf[SHAKE256_RATE];
+    static uint8_t buf[SHAKE256_RATE];
     shake256incctx state;
 
     shake256_inc_init(&state);
