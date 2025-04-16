@@ -269,10 +269,10 @@ int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
 
     PQCLEAN_MLDSA44_CLEAN_unpack_pk(rho, &t1, pk);
     if (PQCLEAN_MLDSA44_CLEAN_unpack_sig(c, &z, &h, sig)) {
-        return -1;
+        return -2;
     }
     if (PQCLEAN_MLDSA44_CLEAN_polyvecl_chknorm(&z, GAMMA1 - BETA)) {
-        return -1;
+        return -3;
     }
 
     /* Compute CRH(H(rho, t1), msg) */
@@ -318,7 +318,7 @@ int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
     shake256_inc_ctx_release(&state);
     for (i = 0; i < CTILDEBYTES; ++i) {
         if (c[i] != c2[i]) {
-            return -1;
+            return -4;
         }
     }
 
