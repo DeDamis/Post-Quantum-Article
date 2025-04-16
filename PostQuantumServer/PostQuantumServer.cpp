@@ -143,10 +143,6 @@ int main()
 					time_t now = time(nullptr);
 					string replyPlain = "AuthReply:" + to_string(now);
 
-					cout << "Msg len / bytes: " << endl;
-					cout << replyPlain.length() << endl;
-					cout << replyPlain.data() << endl;
-
 					// Sign the reply with the secret key
 					// We store the result in signature[] with length sigLen
 					uint8_t signature[PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES];
@@ -168,32 +164,13 @@ int main()
 					// Convert signature to hex to send easily
 					string signatureHex = bytesToHex(signature, sigLen);
 
-
-					cout << "First 16 bytes of pkHex:" << endl;
-					for (int i = 0; i < 32; i++)
-						cout << bytesToHex(&pk[i], 1);
-					cout << endl;
-
-
-
 					// Combine the original reply and the signature in one message
 					// You could do something like "AuthReply:<timestamp>||sig:<signatureHex>"
 					// or use JSON, or separate them in any protocol format you want.
 					// For example:
 					string combinedMessage = replyPlain + "|signature:" + signatureHex;
 
-					cout << "Message for verification: " << endl;
-					cout << combinedMessage << endl;
-
 					int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(signature, sigLen, reinterpret_cast<const uint8_t*>(replyPlain.data()), replyPlain.size(), pk);
-
-					cout << "Sanity check:"<<ret << endl; 
-					//cout << "signature:" << signature << endl;
-					cout << "sigLen:" << sigLen << endl;
-					//cout << "reinterpret_cast<const uint8_t*>(replyPlain.data()):" << reinterpret_cast<const uint8_t*>(replyPlain.data()) << endl;
-					cout << "replyPlain.size():" << replyPlain.size() << endl;
-
-					printf("m‑bytes: ");  fwrite(replyPlain.data(), 1, replyPlain.size(), stdout);  puts("");
 
 					// Send the combined reply+signature to the client
 					int sendResult = send(clientSocket,

@@ -54,7 +54,7 @@ void loop()
             wifiConnection = establishWifiConnection();
             // listAvailableNetworks();
             WiFi_retry_delay = millis();
-            Serial.println(WiFi.status());
+            // Serial.println(WiFi.status());
         }
     }
 }
@@ -159,7 +159,7 @@ bool processAuthReply(char* reply)
     signatureStart += strlen(sigLabel); // Move pointer to start of hex signature
 
     // Debug print parsed values.
-    // Serial.println(F("Parsed Values:");
+    /*
     Serial.println(F("Parsed Values:"));
     Serial.println(F("Control word: "));
     Serial.println(control);
@@ -167,14 +167,15 @@ bool processAuthReply(char* reply)
     Serial.println(timestampStr);
     Serial.println(F("Signature: "));
     Serial.println(signatureStart);
+    */
 
     // Construct the original message that was signed:
     // "AuthReply:<timestamp>"
     static char message[100]; // Should be plenty; adjust if needed.
     snprintf(message, sizeof(message), "%s:%s", control, timestampStr);
-    Serial.print(F("Message for verification: "));
-    Serial.println(message);
-    // Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
+    // Serial.print(F("Message for verification: "));
+    // Serial.println(message);
+    //  Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
     char* pkHex = (char*)malloc(((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1) * sizeof(char));
     if (!pkHex) {
         Serial.println(F("Failed to allocate memory for pkHex."));
@@ -201,10 +202,6 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
 {
     size_t msgLen = strlen(message);
     size_t expectedSigHexLen = PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES * 2;
-    Serial.print(F("Expected signature hex length: "));
-    Serial.println(expectedSigHexLen);
-    Serial.print(F("Actual signature hex length: "));
-    Serial.println(strlen(signatureHex));
 
     if (strlen(signatureHex) != expectedSigHexLen) {
         Serial.print(F("Signature hex length mismatch. Expected: "));
@@ -244,30 +241,6 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 
-    Serial.print(F("Message for verification:"));
-    Serial.println(message);
-
-    Serial.print(F("Expected signature byte length: "));
-    Serial.println("2420");
-    Serial.print(F("Actual signature byte length: "));
-    Serial.println(sizeof(sig));
-
-    Serial.print(F("Expected message length: "));
-    Serial.println("20");
-    Serial.print(F("Actual message length: "));
-    Serial.println(strlen(message));
-    Serial.println(msgLen);
-
-    Serial.println(F("Last resort:"));
-    Serial.println(strlen(signatureHex) / 2);
-    // Serial.write(sig, strlen(signatureHex) / 2);
-    Serial.println("break");
-    // Serial.write(reinterpret_cast<const uint8_t*>(message), msgLen);
-    Serial.println("break");
-    Serial.println(msgLen);
-    // Serial.write(pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES);
-    Serial.println("break");
-
     Serial.printf("pk bytes=%u sig bytes=%u\n", (unsigned)PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES, (unsigned)PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
     Serial.println(F("First 16 bytes of pkHex:"));
     for (int i = 0; i < 32; i++)
@@ -278,10 +251,9 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     Serial.write((uint8_t*)message, msgLen);
     Serial.println();
 
+    delay(1000);
+
     int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(sig, strlen(signatureHex) / 2, reinterpret_cast<const uint8_t*>(message), msgLen, pk);
-
-    Serial.println(ret);
-
     free(sig);
     free(pk);
     if (ret == SIG_VALID) {
