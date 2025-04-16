@@ -11,7 +11,7 @@ void setup()
 {
     Serial.begin(9600); // Start serial for debug output
     delay(200); // Let the serial line settle
-    Serial.println("Booting up...");
+    Serial.println(F("Booting up..."));
 
     // Try to connect to Wi-Fi
     // wifiConnection = establishWifiConnection();
@@ -19,7 +19,7 @@ void setup()
     /*
     char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
     strcpy_P(publicKeyBuffer, dilithiumPublicKey);
-    Serial.println("Server' Public Key:");
+    Serial.println(F("Server' Public Key:");
     Serial.println(publicKeyBuffer);
     Serial.println();
     free(publicKeyBuffer);
@@ -30,7 +30,7 @@ void loop()
 {
     // Periodically report status
     if (millis() > (report_delay + 2000)) {
-        Serial.println("Running..");
+        Serial.println(F("Running.."));
         report_delay = millis();
     }
 
@@ -60,140 +60,161 @@ void loop()
 bool connectToServer()
 {
     Serial.println();
-    Serial.print("Attempting TCP connection to ");
+    Serial.print(F("Attempting TCP connection to "));
     Serial.print(serverIP);
-    Serial.print(":");
+    Serial.print(F(":"));
     Serial.println(serverPort);
 
     // Attempt to connect
     if (!client.connect(serverIP, serverPort)) {
-        Serial.println("TCP connection failed.");
+        Serial.println(F("TCP connection failed."));
         return false;
     }
 
-    Serial.println("TCP connection successful!");
+    Serial.println(F("TCP connection successful!"));
 
     // Send message to server
     client.println("AuthRequest");
     delay(1000);
+
     // Receive a message in a format of
     // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
-    String response;
+
+    // Allocate a response buffer from the heap.
+    size_t bufferSize = 7000; // Adjust if necessary
+    char* response = (char*)malloc(bufferSize);
+    if (!response) {
+        Serial.println(F("Failed to allocate memory for response."));
+        return false;
+    }
+    size_t index = 0;
     unsigned long start = millis();
-    while ((millis() - start) < 10000) { // 5 second timeout
+
+    // Read data from the server with a 10-second timeout.
+    while ((millis() - start) < 10000) {
         while (client.available()) {
             char c = client.read();
-            response += c;
-            start = millis(); // reset timeout when data is coming in
+            Serial.print(c); // Optional: echo data
+            if (index < (bufferSize - 1)) { // leave room for null terminator
+                response[index++] = c;
+            }
+            start = millis(); // Reset timeout
         }
     }
-    Serial.println(response);
-    if (response.length() > 1) {
+    response[index] = '\0'; // Null-terminate the received response
+
+    Serial.println(); // Newline for clarity
+    // Serial.println(response); // Debug print complete response
+
+    if (index > 1) {
+        Serial.println(F("Response OK."));
         client.println("Ack");
         processAuthReply(response);
     } else {
-        Serial.println("Response error.");
+        Serial.println(F("Response error."));
+        free(response);
     }
     return true;
 }
 
-// Example usage in your code:
-void processAuthReply(String reply)
+//
+// processAuthReply: parse the raw response (which uses no extra copies)
+// Expected response format (in the same buffer):
+// "AuthReply:<timestamp>|signature:<hexsignature>"
+// Parsing is done in place by replacing delimiters with '\0'
+//
+void processAuthReply(char* reply)
 {
-    String control;
-    unsigned long timestamp;
-    String sig;
+    // Find the first colon. It separates the control word from the timestamp.
+    char* colon1 = strchr(reply, ':');
+    if (!colon1) {
+        Serial.println(F("Error: first colon not found."));
+        free(reply);
+        return;
+    }
+    *colon1 = '\0';
+    char* control = reply; // should be "AuthReply"
 
-    parseAuthReply(reply, control, timestamp, sig);
+    // The rest should contain the timestamp followed by a pipe.
+    char* rest = colon1 + 1;
+    char* pipePos = strchr(rest, '|');
+    if (!pipePos) {
+        Serial.println(F("Error: pipe not found."));
+        free(reply);
+        return;
+    }
+    *pipePos = '\0';
+    char* timestampStr = rest;
 
-    Serial.println("Parsed Values:");
-    Serial.print("Control word: ");
+    // Expect the "signature:" label after the pipe.
+    const char* sigLabel = "signature:";
+    char* signatureStart = strstr(pipePos + 1, sigLabel);
+    if (!signatureStart) {
+        Serial.println(F("Error: signature label not found."));
+        free(reply);
+        return;
+    }
+    signatureStart += strlen(sigLabel); // Move pointer to start of hex signature
+
+    // Debug print parsed values.
+    // Serial.println(F("Parsed Values:");
+    Serial.println(F("Parsed Values:"));
+    Serial.println(F("Control word: "));
     Serial.println(control);
-    Serial.print("UNIX timestamp: ");
-    Serial.println(timestamp);
-    Serial.print("Signature: ");
-    Serial.println(sig);
-    verifyAuthReply(control, timestamp, sig);
-}
+    Serial.println(F("Timestamp: "));
+    Serial.println(timestampStr);
+    Serial.println(F("Signature: "));
+    Serial.println(signatureStart);
 
-// Function to parse the AuthReply message into three variables.
-// The expected message format is:
-// "AuthReply:1744750583|signature:5D5056F7BEB494287A396EEA50E2CFDA..."
-void parseAuthReply(const String& reply, String& controlWord, unsigned long& unixStamp, String& signature)
-{
-    // Find the first colon: separates the control word from the timestamp.
-    int colonIndex = reply.indexOf(':');
-    if (colonIndex == -1) {
-        Serial.println("Error: colon not found.");
-        return;
-    }
-    // Extract the control word (e.g. "AuthReply")
-    controlWord = reply.substring(0, colonIndex);
+    // Construct the original message that was signed:
+    // "AuthReply:<timestamp>"
+    static char message[100]; // Should be plenty; adjust if needed.
+    snprintf(message, sizeof(message), "%s:%s", control, timestampStr);
+    Serial.print(F("Message for verification: "));
+    Serial.println(message);
 
-    // Find the pipe character that separates the timestamp from the signature.
-    int pipeIndex = reply.indexOf('|');
-    if (pipeIndex == -1) {
-        Serial.println("Error: pipe character not found.");
-        return;
-    }
-    // Extract timestamp string from after the colon to the pipe
-    String timestampStr = reply.substring(colonIndex + 1, pipeIndex);
-    unixStamp = timestampStr.toInt(); // Convert to numeric value
-
-    // Now find the colon that comes after "signature"
-    int secondColon = reply.indexOf(':', pipeIndex);
-    if (secondColon == -1) {
-        Serial.println("Error: second colon not found.");
-        return;
-    }
-    // Extract signature (everything after the second colon)
-    signature = reply.substring(secondColon + 1);
-}
-
-bool verifyAuthReply(const String& controlWord, unsigned long timestamp, const String& signatureHex)
-{
-    if (controlWord != "AuthReply") {
-        Serial.println("Control word mismatch.");
-        return false;
-    }
-
-    // Construct the message string: "AuthReply:<timestamp>"
-    String message = "AuthReply:" + String(timestamp);
-    const uint8_t* msg = reinterpret_cast<const uint8_t*>(message.c_str());
-    size_t msgLen = message.length();
-
-    Serial.print("Expected signature length: ");
-    Serial.println(PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES * 2);
-    Serial.print("Actual signature length: ");
-    Serial.println(signatureHex.length());
-
-    // Decode signature from hex string
-    static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
-    if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
-        Serial.println("Signature hex decode failed.");
-        return false;
-    }
-    Serial.println("Signature hex decode OK.");
-
-    char* pkHex = (char*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1) * sizeof(char));
+    // Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
+    static char pkHex[(PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1];
     strcpy_P(pkHex, dilithiumPublicKey);
 
-    static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
-    if (!hexToBytes(String(pkHex), pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
-        Serial.println("Public key hex decode failed.");
-        return false;
-    }
-    Serial.println("Public Key hex decode OK.");
-
-    // Verify the signature
-    int ret = 1; // PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), msg, msgLen, pk);
-    if (ret == 0) {
-        Serial.println("Signature is VALID.");
-        return true;
+    // Verify the signature.
+    bool valid = 0; // verifyAuthReply(message, signatureStart, pkHex);
+    if (valid) {
+        Serial.println(F("Signature is VALID."));
     } else {
-        Serial.println("Signature is INVALID.");
+        Serial.println(F("Signature is INVALID."));
+    }
+
+    free(reply);
+}
+
+//
+// Verify the signature given the message, signature (in hex)
+// and the public key (in hex). Returns true if valid.
+bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex)
+{
+    size_t msgLen = strlen(message);
+    size_t expectedSigHexLen = PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES * 2;
+    if (strlen(signatureHex) != expectedSigHexLen) {
+        Serial.print(F("Signature hex length mismatch. Expected: "));
+        Serial.print(expectedSigHexLen);
+        Serial.print(F(", got: "));
+        Serial.println(strlen(signatureHex));
         return false;
     }
 
-    free(pkHex);
+    uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+    if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
+        Serial.println(F("Signature hex decode failed."));
+        return false;
+    }
+
+    uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+    if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
+        Serial.println(F("Public key hex decode failed."));
+        return false;
+    }
+
+    int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    return (ret == 0);
 }

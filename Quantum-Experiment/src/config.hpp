@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "api.h"  // PQCLEAN_MLDSA65_CLEAN_* function declarations
+#include "api.h" // PQCLEAN_MLDSA65_CLEAN_* function declarations
 #ifdef __cplusplus
 }
 #endif
@@ -22,9 +22,6 @@ uint32_t WiFi_retry_delay = 10000;
 // Attempts to connect to the TCP server
 bool connectToServer();
 
-// Function to parse the AuthReply message into three variables.
-void parseAuthReply(const String &, String &, unsigned long &, String &);
+void processAuthReply(char* reply);
 
-void processAuthReply(String);
-
-bool verifyAuthReply(const String &controlWord, unsigned long timestamp, const String &signatureHex);
+bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex);

@@ -134,7 +134,7 @@ int main()
 			// Null-terminate the received data to make a string
 			buffer[bytesRead] = '\0';
 
-			if (bytesRead > 3) {
+			if (bytesRead > 2) {
 				cout << "Message from client: " << buffer << endl;
 
 				// 7. Process the received message
