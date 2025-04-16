@@ -112,8 +112,8 @@ bool connectToServer()
         processAuthReply(response);
     } else {
         Serial.println(F("Response error."));
-        free(response);
     }
+    free(response);
     return true;
 }
 
@@ -123,14 +123,14 @@ bool connectToServer()
 // "AuthReply:<timestamp>|signature:<hexsignature>"
 // Parsing is done in place by replacing delimiters with '\0'
 //
-void processAuthReply(char* reply)
+bool processAuthReply(char* reply)
 {
     // Find the first colon. It separates the control word from the timestamp.
     char* colon1 = strchr(reply, ':');
     if (!colon1) {
         Serial.println(F("Error: first colon not found."));
         free(reply);
-        return;
+        return false;
     }
     *colon1 = '\0';
     char* control = reply; // should be "AuthReply"
@@ -141,18 +141,17 @@ void processAuthReply(char* reply)
     if (!pipePos) {
         Serial.println(F("Error: pipe not found."));
         free(reply);
-        return;
+        return false;
     }
     *pipePos = '\0';
     char* timestampStr = rest;
-
     // Expect the "signature:" label after the pipe.
     const char* sigLabel = "signature:";
     char* signatureStart = strstr(pipePos + 1, sigLabel);
     if (!signatureStart) {
         Serial.println(F("Error: signature label not found."));
         free(reply);
-        return;
+        return false;
     }
     signatureStart += strlen(sigLabel); // Move pointer to start of hex signature
 
@@ -174,7 +173,11 @@ void processAuthReply(char* reply)
     Serial.println(message);
 
     // Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
-    static char pkHex[(PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1];
+    char* pkHex = (char*)malloc(((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1) * sizeof(char));
+    if (!pkHex) {
+        Serial.println(F("Failed to allocate memory for pkHex."));
+        return false;
+    }
     strcpy_P(pkHex, dilithiumPublicKey);
 
     // Verify the signature.
@@ -184,8 +187,9 @@ void processAuthReply(char* reply)
     } else {
         Serial.println(F("Signature is INVALID."));
     }
-
+    free(pkHex);
     free(reply);
+    return true;
 }
 
 //
@@ -203,18 +207,29 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 
-    static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+    uint8_t* sig = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES) * sizeof(uint8_t));
+    if (!sig) {
+        Serial.println(F("Failed to allocate memory for sig."));
+        return false;
+    }
     if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
         return false;
     }
 
-    static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+    uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
+    if (!pk) {
+        Serial.println(F("Failed to allocate memory for pk."));
+        return false;
+    }
+
     if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));
         return false;
     }
 
-    int ret = 1; // PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    free(sig);
+    free(pk);
     return (ret == 0);
 }

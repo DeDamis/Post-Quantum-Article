@@ -22,6 +22,6 @@ uint32_t WiFi_retry_delay = 10000;
 // Attempts to connect to the TCP server
 bool connectToServer();
 
-void processAuthReply(char* reply);
+bool processAuthReply(char* reply);
 
 bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex);
