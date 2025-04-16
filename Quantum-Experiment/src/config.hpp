@@ -19,6 +19,9 @@ uint32_t report_delay = 500;
 uint32_t tcp_delay = 5000;
 uint32_t WiFi_retry_delay = 10000;
 
+static const int SIG_VALID = 0;
+static const int SIG_INVALID = -1;
+
 // Attempts to connect to the TCP server
 bool connectToServer();
 
