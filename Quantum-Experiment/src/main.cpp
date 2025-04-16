@@ -178,7 +178,7 @@ void processAuthReply(char* reply)
     strcpy_P(pkHex, dilithiumPublicKey);
 
     // Verify the signature.
-    bool valid = 0; // verifyAuthReply(message, signatureStart, pkHex);
+    bool valid = verifyAuthReply(message, signatureStart, pkHex);
     if (valid) {
         Serial.println(F("Signature is VALID."));
     } else {
@@ -203,18 +203,18 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 
-    uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
+    static uint8_t sig[PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES];
     if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA65_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
         return false;
     }
 
-    uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
+    static uint8_t pk[PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES];
     if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));
         return false;
     }
 
-    int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    int ret = 1; // PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), reinterpret_cast<const uint8_t*>(message), msgLen, pk);
     return (ret == 0);
 }
