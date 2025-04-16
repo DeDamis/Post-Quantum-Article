@@ -181,7 +181,7 @@ int main()
 						break; // End communication with this client
 					}
 				}
-				if (strcmp(buffer, "Ack") == 0) { 1; }
+				else if (strcmp(buffer, "Ack") == 0) { 1; }
 				else {
 					// If it's not "AuthRequest," just display the message in the console
 					cout << "Message from client: " << buffer << endl;
