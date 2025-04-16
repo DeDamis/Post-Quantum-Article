@@ -15,12 +15,14 @@ void setup() {
   // Try to connect to Wi-Fi
   //wifiConnection = establishWifiConnection();
 
+  /*
   char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA65_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
   strcpy_P(publicKeyBuffer, dilithiumPublicKey);
   Serial.println("Server' Public Key:");
   Serial.println(publicKeyBuffer);
   Serial.println();
   free(publicKeyBuffer);
+  */
 }
 
 void loop() {
@@ -73,18 +75,22 @@ bool connectToServer() {
   delay(1000);
   // Receive a message in a format of
   // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
-  String reply;
+  String response;
   unsigned long start = millis();
-  while ((millis() - start) < 5000) {  // 5 second timeout
+  while ((millis() - start) < 10000) {  // 5 second timeout
     while (client.available()) {
       char c = client.read();
-      reply += c;
+      response += c;
       start = millis();  // reset timeout when data is coming in
     }
   }
-  Serial.println();
-  client.println("Ack.");
-  processAuthReply(reply);
+  Serial.println(response);
+  if(response.length() > 1){
+  client.println("Ack");
+  processAuthReply(response);
+  }else{
+    Serial.println("Response error.");
+  }
   return true;
 }
 
@@ -174,7 +180,7 @@ bool verifyAuthReply(const String &controlWord, unsigned long timestamp, const S
   Serial.println("Public Key hex decode OK.");
 
   // Verify the signature
-  int ret = PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), msg, msgLen, pk);
+  int ret = 1;//PQCLEAN_MLDSA65_CLEAN_crypto_sign_verify(sig, sizeof(sig), msg, msgLen, pk);
   if (ret == 0) {
     Serial.println("Signature is VALID.");
     return true;
