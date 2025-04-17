@@ -7,26 +7,27 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project("PostQuantumServer")
+project("PostQuantumServer" LANGUAGES C CXX)
 
-# 1) Add the subdirectory where your PQClean-master/CMakeLists.txt lives.
-#    This will build the library from sources.
+# 1) Sestavíme podprojekt PQClean-master (vytvoří ml_dsa_44_clean a ml_kem_512_clean)
 add_subdirectory(PQClean-master)
 
-# 2) Create the executable from your main source files
+# 2) Definice hlavního programu
 add_executable(PostQuantumServer
     PostQuantumServer.cpp
-    PostQuantumServer.h
- "Helpers.cpp")
+    Helpers.cpp
+)
 
-# 3) Optionally set the C++ standard
+# 3) C++20
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-    set_property(TARGET PostQuantumServer PROPERTY CXX_STANDARD 20)
+  set_property(TARGET PostQuantumServer PROPERTY CXX_STANDARD 20)
 endif()
 
-# 4) Link the library (ml_dsa_44_clean) we define in the PQClean-master subdirectory
-target_link_libraries(PostQuantumServer PRIVATE ml_dsa_44_clean)
+# 4) Link ml-dsa-44 i ml-kem-512 knihovny
+target_link_libraries(PostQuantumServer PRIVATE
+    ml_dsa_44_clean
+    ml_kem_512_clean
+)
 
-# If you need any special include directory beyond what's set in the subdirectory,
-# add it here. For example:
-# target_include_directories(PostQuantumServer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/some_include")
+# 5) (volitelné) Pokud potřebuješ ještě další include cesty:
+# target_include_directories(PostQuantumServer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

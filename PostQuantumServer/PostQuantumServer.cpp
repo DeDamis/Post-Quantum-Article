@@ -12,11 +12,12 @@
 #include <ctime>    // for time() to obtain a UNIX timestamp
 
 #ifdef __cplusplus
-extern "C" {
+	extern "C" {
 #endif
-#include "api.h"  // PQCLEAN_MLDSA44_CLEAN_* function declarations
+	#include "PQClean-master/crypto_sign/ml-dsa-44/clean/api.h"  // PQCLEAN_MLDSA44_CLEAN_* function declarations
+	#include "PQClean-master/crypto_kem/ml-kem-512/clean/api.h"  // PQCLEAN_MLKEM512_CLEAN_* function declarations
 #ifdef __cplusplus
-}
+	}
 #endif
 
 #include "Helpers.hpp"  // Our custom helper functions (bytesToHex, etc.)
