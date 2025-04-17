@@ -79,7 +79,7 @@ bool connectToServer()
 
     // Send message to server
     client.println("AuthRequest");
-    delay(1000);
+    delay(500);
 
     // Receive a message in a format of
     // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
@@ -91,31 +91,20 @@ bool connectToServer()
         Serial.println(F("Failed to allocate memory for response."));
         return false;
     }
-    size_t index = 0;
-    unsigned long start = millis();
 
-    // Read data from the server with a 10-second timeout.
-    while ((millis() - start) < 10000) {
-        while (client.available()) {
-            char c = client.read();
-            Serial.print(c); // Optional: echo data
-            if (index < (bufferSize - 1)) { // leave room for null terminator
-                response[index++] = c;
-            }
-            start = millis(); // Reset timeout
-        }
-    }
-    response[index] = '\0'; // Null-terminate the received response
+    processResponse(response, bufferSize);
 
     Serial.println(); // Newline for clarity
     // Serial.println(response); // Debug print complete response
 
-    if (index > 1) {
-        Serial.println(F("Response OK."));
-        client.println("Ack");
-        processAuthReply(response);
-    } else {
-        Serial.println(F("Response error."));
+    checkResponseLength(response, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
+    if (processAuthReply(response)) { // Server signature valid
+        // Proceed with KEM Request
+        client.println("KemRequest");
+        delay(500);
+        processResponse(response, bufferSize);
+        Serial.println(); // Newline for clarity
+        Serial.println(response); // Debug print complete response
     }
     client.stop(200);
     free(response);
@@ -187,14 +176,15 @@ bool processAuthReply(char* reply)
 
     // Verify the signature.
     bool valid = verifyAuthReply(message, signatureStart, pkHex);
-    if (valid) {
-        Serial.println(F("Signature is VALID."));
-    } else {
-        Serial.println(F("Signature is INVALID."));
-    }
     free(pkHex);
     free(reply);
-    return true;
+    if (valid) {
+        Serial.println(F("Signature is VALID."));
+        return true;
+    } else {
+        Serial.println(F("Signature is INVALID."));
+        return false;
+    }
 }
 
 //
@@ -261,6 +251,41 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     if (ret == SIG_VALID) {
         return true;
     } else {
+        return false;
+    }
+}
+
+void processResponse(char* buffer, size_t bufferSize)
+{
+    for (size_t i = 0; i < bufferSize; i++) {
+        buffer[i] = '\0';
+    }
+
+    size_t index = 0;
+    unsigned long start = millis();
+
+    // Read data from the server with a 5-second timeout.
+    while ((millis() - start) < 5000) {
+        while (client.available()) {
+            char c = client.read();
+            Serial.print(c); // Optional: echo data
+            if (index < (bufferSize - 1)) { // leave room for null terminator
+                buffer[index++] = c;
+            }
+            start = millis(); // Reset timeout
+        }
+    }
+    buffer[index] = '\0'; // Null-terminate the received response
+}
+
+bool checkResponseLength(char* response, size_t expectedLength)
+{
+    if (strlen(response) >= expectedLength) {
+        Serial.println(F("Response OK."));
+        client.println(F("Ack"));
+        return true;
+    } else {
+        Serial.println(F("Response error. Response is shorter than expected"));
         return false;
     }
 }

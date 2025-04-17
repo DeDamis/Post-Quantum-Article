@@ -26,6 +26,10 @@ static const int SIG_INVALID = -1;
 // Attempts to connect to the TCP server
 bool connectToServer();
 
+void processResponse(char* buffer, size_t bufferSize);
+
+bool checkResponseLength(char* response, size_t expectedLength);
+
 bool processAuthReply(char* reply);
 
 bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex);
