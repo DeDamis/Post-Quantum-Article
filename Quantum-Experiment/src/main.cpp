@@ -16,6 +16,8 @@ void setup()
     // Try to connect to Wi-Fi
     // wifiConnection = establishWifiConnection();
 
+    static char* test[PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES];
+
     /*
     char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
     strcpy_P(publicKeyBuffer, dilithiumPublicKey);

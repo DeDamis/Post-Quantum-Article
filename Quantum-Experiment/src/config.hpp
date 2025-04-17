@@ -5,7 +5,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "api.h" // PQCLEAN_MLDSA65_CLEAN_* function declarations
+#include "crypto_kem/ml-kem-512/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
+#include "crypto_sign/ml-dsa-44/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
 #ifdef __cplusplus
 }
 #endif

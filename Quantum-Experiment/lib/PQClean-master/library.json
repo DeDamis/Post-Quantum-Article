@@ -1,16 +1,18 @@
 {
-  "name": "PQCleanMLDSA44",
+  "name": "PQClean",
   "version": "1.0.0",
-  "description": "ML-DSA-44 PQClean-based library",
+  "description": "PQClean-based library with ML-DSA-44 and ML-KEM-512",
   "build": {
     "flags": [
       "-I common",
-      "-I crypto_sign/ml-dsa-44/clean"
+      "-I crypto_sign/ml-dsa-44/clean",
+      "-I crypto_kem/ml-kem-512/clean"
     ],
     "srcFilter": [
       "+<common/*.c>",
       "-<common/randombytes.c>",
-      "+<crypto_sign/ml-dsa-44/clean/*.c>"
+      "+<crypto_sign/ml-dsa-44/clean/*.c>",
+      "+<crypto_kem/ml-kem-512/clean/*.c>"
     ],
     "libArchive": false
   }
