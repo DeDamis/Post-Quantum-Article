@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iostream>
 #include <cstring>
+#include <vector>
 #include <ctime>    // for time() to obtain a UNIX timestamp
 
 #ifdef __cplusplus
@@ -16,6 +17,7 @@
 #endif
 	#include "PQClean-master/crypto_sign/ml-dsa-44/clean/api.h"  // PQCLEAN_MLDSA44_CLEAN_* function declarations
 	#include "PQClean-master/crypto_kem/ml-kem-512/clean/api.h"  // PQCLEAN_MLKEM512_CLEAN_* function declarations
+	#include "aes.h"
 #ifdef __cplusplus
 	}
 #endif
@@ -24,11 +26,16 @@
 
 using namespace std;
 
+static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
+
 int main()
 {
 	// Prepare buffers for keys
 	uint8_t pk[PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES];
 	uint8_t sk[PQCLEAN_MLDSA44_CLEAN_CRYPTO_SECRETKEYBYTES];
+	// KEM keys
+	uint8_t kem_pk[PQCLEAN_MLKEM512_CLEAN_CRYPTO_PUBLICKEYBYTES];
+	uint8_t kem_sk[PQCLEAN_MLKEM512_CLEAN_CRYPTO_SECRETKEYBYTES];
 
 	// Attempt to load existing keys from files
 	bool pkLoaded = loadKeyFromFile("PublicKeyDilithium.txt", pk, sizeof(pk));
@@ -138,8 +145,95 @@ int main()
 			if (bytesRead > 2) {
 				cout << "Message from client: " << buffer << endl;
 
+				if (strcmp(buffer, "KemRequest") == 0) {
+					// 1) Vygeneruj KEM klíče
+					if (PQCLEAN_MLKEM512_CLEAN_crypto_kem_keypair(kem_pk, kem_sk) != 0) {
+						cerr << "Error: KEM keypair generation failed" << endl;
+						break;
+					}
+
+					// 2) Převod veřejného klíče na hex
+					string pkHex = bytesToHex(kem_pk, sizeof(kem_pk));
+
+					// 3) Sestav odpověď a pošli
+					string kemReply = "KemInit:" + pkHex;
+					if (send(clientSocket,
+						kemReply.c_str(),
+						static_cast<int>(kemReply.size()),
+						0) == SOCKET_ERROR) {
+						cerr << "Error: Failed to send KemInit. Code: "
+							<< WSAGetLastError() << endl;
+						break;
+					}
+				}
+				else if (strncmp(buffer, "KemCipher:", 10) == 0) {
+					// 1) Extrahuj hex‑část za "KemCipher:"
+					std::string hexCt(buffer + 10);
+
+					// 2) Převeď hex na binární ciphertext
+					std::vector<uint8_t> ciphertext(PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+					if (!hexToBytes(hexCt, ciphertext.data(), ciphertext.size())) {
+						cerr << "Error: Invalid ciphertext format" << endl;
+						break;
+					}
+
+					// 3) Dekapsulace 
+					int decRet = PQCLEAN_MLKEM512_CLEAN_crypto_kem_dec(
+						kem_shared_secret,            // výstup: shared secret
+						ciphertext.data(),            // vstup: ciphertext
+						kem_sk                        // secret key pro KEM
+					);
+					if (decRet != 0) {
+						cerr << "Error: KEM decapsulation failed" << endl;
+						break;
+					}
+					string reply = "LineReady";
+					if (send(clientSocket, reply.c_str(), static_cast<int>(reply.size()), 0) == SOCKET_ERROR) {
+						cerr << "Error: Failed to send LineReady. Code: "
+							<< WSAGetLastError() << endl;
+						break;
+					}
+					cout << "Shared secret decapsulated and stored." << endl;
+				}
+				else if (strncmp(buffer, "ConfidentialData:", 17) == 0) {
+					// 1) Extract the hex payload after "ConfidentialData:"
+					std::string hexData(buffer + 17);
+
+					// 2) Decode hex into bytes
+					size_t dataLen = hexData.size() / 2;
+					std::vector<uint8_t> encData(dataLen);
+					if (!hexToBytes(hexData, encData.data(), dataLen)) {
+						std::cerr << "Error: Invalid ConfidentialData format" << std::endl;
+						break;
+					}
+
+					// 3) Split nonce (first AESCTR_NONCEBYTES) and ciphertext
+					const size_t nonceLen = AESCTR_NONCEBYTES;
+					if (dataLen < nonceLen) {
+						std::cerr << "Error: Encrypted data too short for nonce" << std::endl;
+						break;
+					}
+					const uint8_t* iv = encData.data();
+					size_t ctLen = dataLen - nonceLen;
+					const uint8_t* ciphertext = encData.data() + nonceLen;
+
+					// 4) AES‑256‑CTR key schedule using the shared secret
+					aes256ctx aesCtx;
+					aes256_ctr_keyexp(&aesCtx, kem_shared_secret);
+
+					// 5) Decrypt ciphertext
+					std::vector<uint8_t> plaintext(ctLen);
+					aes256_ctr(plaintext.data(), ctLen, iv, &aesCtx);
+
+					// 6) Clean up AES context
+					aes256_ctx_release(&aesCtx);
+
+					// 7) Convert plaintext bytes to string and print
+					std::string message(reinterpret_cast<char*>(plaintext.data()), plaintext.size());
+					std::cout << "Decrypted ConfidentialData: " << message << std::endl;
+				}
 				// 7. Process the received message
-				if (strcmp(buffer, "AuthRequest") == 0) {
+				else if (strcmp(buffer, "AuthRequest") == 0) {
 					// Build the message we want to sign
 					time_t now = time(nullptr);
 					string replyPlain = "AuthReply:" + to_string(now);
