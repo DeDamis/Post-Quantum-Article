@@ -8,8 +8,18 @@ const char* serverIP = "192.168.238.1"; // Example IP
 const uint16_t serverPort = 8080; // Example port
 
 #define KEM
-#define AES
+// #define AES
 // #define AUTH
+
+/* Error if both KEM and AUTH are enabled */
+#if defined(KEM) && defined(AUTH)
+#error "Both KEM and AUTH (Digital Signature) won't fit within the board's RAM"
+#endif
+
+/* Error if AES is enabled without KEM */
+#if defined(AES) && !defined(KEM)
+#error "AES won't work without KEM."
+#endif
 
 // Global variable for the kem shared secret, that is used as secret key for AES encryption
 #ifdef KEM
@@ -18,7 +28,6 @@ static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
 
 void setup()
 {
-    ESP.wdtEnable(10000); // TODO CHECK
     Serial.begin(115200); // Start serial for debug output
     delay(200); // Let the serial line settle
     Serial.println(F("Booting up..."));
@@ -84,7 +93,7 @@ bool connectToServer()
     // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
 
     // Allocate a response buffer from the heap.
-    size_t bufferSize = 7000; // Adjust if necessary //TODO REDUCE
+    size_t bufferSize = 5000; // Adjust if necessary
     char* response = (char*)malloc(bufferSize);
     if (!response) {
         Serial.println(F("Failed to allocate memory for response."));
@@ -161,7 +170,7 @@ bool processKem(char* message, size_t bufferSize)
     /* --- 4. encapsulate  ------------------------------------------- */
     const size_t ctBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES;
     uint8_t ct[ctBytes];
-    system_soft_wdt_stop(); // disable **all** WDTs (hard & soft)
+
     unsigned long t0 = millis();
     // I have verified that this will cause the wdt reset
     if (PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc(ct, kem_shared_secret, pk) != 0) {
@@ -169,7 +178,6 @@ bool processKem(char* message, size_t bufferSize)
         return false;
     }
     unsigned long dt = millis() - t0;
-    system_soft_wdt_restart(); // re-enable both WDTs
 
     Serial.printf("encapsulation took %lums\n", dt);
     yield();
