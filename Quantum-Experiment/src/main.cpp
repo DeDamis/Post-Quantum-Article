@@ -4,7 +4,7 @@
 #include "helpers.hpp"
 
 // hard-coded server’s IP address and port
-const char* serverIP = "192.168.1.22"; // Example IP
+const char* serverIP = "192.168.238.1"; // Example IP
 const uint16_t serverPort = 8080; // Example port
 
 // Global variable for the kem shared secret, that is used as secret key for AES encryption
@@ -12,7 +12,8 @@ static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
 
 void setup()
 {
-    Serial.begin(9600); // Start serial for debug output
+    ESP.wdtEnable(10000); // TODO CHECK
+    Serial.begin(115200); // Start serial for debug output
     delay(200); // Let the serial line settle
     Serial.println(F("Booting up..."));
 
@@ -56,6 +57,9 @@ void loop()
 
 bool connectToServer()
 {
+    Serial.print("Free heap: ");
+    Serial.println(ESP.getFreeHeap());
+
     Serial.println();
     Serial.print(F("Attempting TCP connection to "));
     Serial.print(serverIP);
@@ -87,21 +91,24 @@ bool connectToServer()
 
     processResponse(response, bufferSize);
 
-    Serial.println(); // Newline for clarity
-    // Serial.println(response); // Debug print complete response
-
     checkResponseLength(response, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
+
+    // We should fix the signing check first
     if (processAuthReply(response)) { // Server signature valid
+        Serial.println(F("Sig valid. Continuing.."));
+        Serial.print("Free heap: ");
+        Serial.println(ESP.getFreeHeap());
+        client.println("Ack");
+        delay(500);
         // Proceed with KEM Request
         client.println("KemRequest");
         delay(500);
         processResponse(response, bufferSize);
-        Serial.println(); // Newline for clarity
-        Serial.println(response); // Debug print complete response
-        processKem(response, bufferSize);
-        // send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
+        // processKem(response, bufferSize);
+        // client.println(response);
+        //    send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
     }
-    client.stop(200);
+    client.abort();
     free(response);
     return true;
 }
@@ -115,7 +122,7 @@ bool processKem(char* message, size_t bufferSize)
         Serial.println(F("Wrong control word received. Expected KemInit."));
         return false;
     }
-
+    yield();
     /* --- 2. locate and length‑check pkHEX -------------------------- */
     char* pkHex = message + prefixLen; // pointer to first hex digit
     size_t pkHexLen = strlen(pkHex);
@@ -124,29 +131,36 @@ bool processKem(char* message, size_t bufferSize)
         Serial.println(F("KEM: pk hex length mismatch"));
         return false;
     }
-
+    yield();
     /* --- 3. hex → raw public key ----------------------------------- */
     static uint8_t pk[pkBytes];
     if (!hexToBytes(pkHex, pk, pkBytes)) {
         Serial.println(F("KEM: pk hex decode failed"));
         return false;
     }
-
+    yield();
     /* --- 4. encapsulate  ------------------------------------------- */
     const size_t ctBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES;
     uint8_t ct[ctBytes];
+    system_soft_wdt_stop(); // disable **all** WDTs (hard & soft)
+    unsigned long t0 = millis();
+    // I have verified that this will cause the wdt reset
     if (PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc(ct, kem_shared_secret, pk) != 0) {
         Serial.println(F("KEM: kem_enc failed"));
         return false;
     }
+    unsigned long dt = millis() - t0;
+    system_soft_wdt_restart(); // re-enable both WDTs
 
-    /* --- 5. ciphertext → hex --------------------------------------- */
+    Serial.printf("encapsulation took %lums\n", dt);
+    yield();
+    // --- 5. ciphertext → hex ---------------------------------------
     static char ctHex[ctBytes * 2 + 1]; // 1537 bytes
     if (!bytesToHex(ct, ctBytes, ctHex, sizeof(ctHex))) {
         Serial.println(F("KEM: bytesToHex failed"));
         return false;
     }
-
+    yield();
     const char* ctPrefix = "KemCipher:";
     size_t needed = strlen(ctPrefix) + strlen(ctHex) + 1;
 
@@ -154,17 +168,18 @@ bool processKem(char* message, size_t bufferSize)
         Serial.println(F("KEM: buffer too small"));
         return false;
     }
-
-    /* --- 6. overwrite original buffer ------------------------------ */
+    yield();
+    // --- 6. overwrite original buffer ------------------------------
     strcpy(message, ctPrefix);
     strcat(message, ctHex);
-
+    yield();
     Serial.println(F("KEM: encapsulation OK"));
     Serial.print(F("Shared‑secret first 8 bytes: "));
     for (int i = 0; i < 8; ++i) {
         if (kem_shared_secret[i] < 0x10)
             Serial.print('0');
         Serial.print(kem_shared_secret[i], HEX);
+        yield();
     }
     Serial.println();
     return true;
@@ -182,7 +197,6 @@ bool processAuthReply(char* reply)
     char* colon1 = strchr(reply, ':');
     if (!colon1) {
         Serial.println(F("Error: first colon not found."));
-        free(reply);
         return false;
     }
     *colon1 = '\0';
@@ -193,7 +207,6 @@ bool processAuthReply(char* reply)
     char* pipePos = strchr(rest, '|');
     if (!pipePos) {
         Serial.println(F("Error: pipe not found."));
-        free(reply);
         return false;
     }
     *pipePos = '\0';
@@ -203,7 +216,6 @@ bool processAuthReply(char* reply)
     char* signatureStart = strstr(pipePos + 1, sigLabel);
     if (!signatureStart) {
         Serial.println(F("Error: signature label not found."));
-        free(reply);
         return false;
     }
     signatureStart += strlen(sigLabel); // Move pointer to start of hex signature
@@ -236,7 +248,6 @@ bool processAuthReply(char* reply)
     // Verify the signature.
     bool valid = verifyAuthReply(message, signatureStart, pkHex);
     free(pkHex);
-    free(reply);
     if (valid) {
         Serial.println(F("Signature is VALID."));
         return true;
@@ -303,8 +314,30 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     Serial.println();
 
     delay(1000);
+    // ** Disable ALL WDTs **
+    ESP.wdtDisable(); // TODO CHECK
 
-    int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(sig, strlen(signatureHex) / 2, reinterpret_cast<const uint8_t*>(message), msgLen, pk);
+    // ** Stop both soft & hard WDTs **
+    system_soft_wdt_stop(); // TODO CHECK
+
+    unsigned long t0 = millis();
+    int ret = 0;
+    /*
+    PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(
+        sig, strlen(signatureHex) / 2,
+        reinterpret_cast<const uint8_t*>(message),
+        strlen(message),
+        pk);
+        */
+    unsigned long dt = millis() - t0;
+
+    // ** Restart the hardware watchdog **
+    system_soft_wdt_restart(); // TODO CHECK
+
+    // ** Re‑enable hardware & software WDT, give it a 5 s window **
+    ESP.wdtEnable(5000); // TODO CHECK
+
+    Serial.printf("verify took %lums\n", dt);
     free(sig);
     free(pk);
     if (ret == SIG_VALID) {
@@ -332,8 +365,11 @@ void processResponse(char* buffer, size_t bufferSize)
                 buffer[index++] = c;
             }
             start = millis(); // Reset timeout
+            yield();
         }
+        yield();
     }
+    Serial.println();
     buffer[index] = '\0'; // Null-terminate the received response
 }
 
@@ -341,7 +377,6 @@ bool checkResponseLength(char* response, size_t expectedLength)
 {
     if (strlen(response) >= expectedLength) {
         Serial.println(F("Response OK."));
-        client.println(F("Ack"));
         return true;
     } else {
         Serial.println(F("Response error. Response is shorter than expected"));
