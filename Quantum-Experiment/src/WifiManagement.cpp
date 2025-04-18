@@ -5,7 +5,7 @@ bool establishWifiConnection()
 {
     Serial.println();
     Serial.println();
-    Serial.print("Connecting to ");
+    Serial.print(F("Connecting to "));
     Serial.println(ssid);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
@@ -14,32 +14,32 @@ bool establishWifiConnection()
         getWifiInfo();
         return true;
     } else {
-        Serial.println("");
-        Serial.println("Couldn't establish Wifi connection at the moment.");
+        Serial.println(F(""));
+        Serial.println(F("Couldn't establish Wifi connection at the moment."));
         return false;
     }
 }
 
 void getWifiInfo()
 {
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.print("IP address:  ");
+    Serial.println(F(""));
+    Serial.println(F("WiFi connected"));
+    Serial.print(F("IP address:  "));
     Serial.println(WiFi.localIP());
-    Serial.println("");
+    Serial.println(F(""));
 }
 
 void listAvailableNetworks()
 {
-    Serial.println("Scanning for available networks...");
+    Serial.println(F("Scanning for available networks..."));
 
     // Initiate a Wi-Fi scan
     int numNetworks = WiFi.scanNetworks();
     if (numNetworks == 0) {
-        Serial.println("No networks found.");
+        Serial.println(F("No networks found."));
     } else {
         Serial.print(numNetworks);
-        Serial.println(" network(s) found:");
+        Serial.println(F(" network(s) found:"));
         for (int i = 0; i < numNetworks; i++) {
             // Print SSID and signal strength
             Serial.printf("%d: %s (RSSI: %d dBm)",
@@ -50,9 +50,9 @@ void listAvailableNetworks()
             // Identify if network is encrypted
             auto encryptionType = WiFi.encryptionType(i);
             if (encryptionType == ENC_TYPE_NONE) {
-                Serial.println(" [Open]");
+                Serial.println(F(" [Open]"));
             } else {
-                Serial.println(" [Encrypted]");
+                Serial.println(F(" [Encrypted]"));
             }
 
             delay(10);
