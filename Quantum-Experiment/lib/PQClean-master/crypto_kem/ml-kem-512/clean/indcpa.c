@@ -256,10 +256,10 @@ void PQCLEAN_MLKEM512_CLEAN_indcpa_enc(uint8_t c[KYBER_INDCPA_BYTES],
                                        const uint8_t pk[KYBER_INDCPA_PUBLICKEYBYTES],
                                        const uint8_t coins[KYBER_SYMBYTES]) {
     unsigned int i;
-    uint8_t seed[KYBER_SYMBYTES];
-    uint8_t nonce = 0;
-    polyvec sp, pkpv, ep, at[KYBER_K], b;
-    poly v, k, epp;
+    static uint8_t seed[KYBER_SYMBYTES];
+    static uint8_t nonce = 0;
+    static polyvec sp, pkpv, ep, at[KYBER_K], b;
+    static poly v, k, epp;
 
     unpack_pk(&pkpv, seed, pk);
     PQCLEAN_MLKEM512_CLEAN_poly_frommsg(&k, m);

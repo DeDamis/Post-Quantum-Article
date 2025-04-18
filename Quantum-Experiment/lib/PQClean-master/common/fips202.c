@@ -349,7 +349,7 @@ static void KeccakF1600_StatePermute(uint64_t *state) {
 static void keccak_absorb(uint64_t *s, uint32_t r, const uint8_t *m,
                           size_t mlen, uint8_t p) {
     size_t i;
-    uint8_t t[200];
+    static uint8_t t[200];
 
     /* Zero state */
     for (i = 0; i < 25; ++i) {
@@ -792,8 +792,8 @@ void sha3_256_inc_finalize(uint8_t *output, sha3_256incctx *state) {
  *              - size_t inlen:   length of input in bytes
  **************************************************/
 void sha3_256(uint8_t *output, const uint8_t *input, size_t inlen) {
-    uint64_t s[25];
-    uint8_t t[SHA3_256_RATE];
+    static uint64_t s[25];
+    static uint8_t t[SHA3_256_RATE];
 
     /* Absorb input */
     keccak_absorb(s, SHA3_256_RATE, input, inlen, 0x06);
@@ -914,8 +914,8 @@ void sha3_512_inc_finalize(uint8_t *output, sha3_512incctx *state) {
  *              - size_t inlen:   length of input in bytes
  **************************************************/
 void sha3_512(uint8_t *output, const uint8_t *input, size_t inlen) {
-    uint64_t s[25];
-    uint8_t t[SHA3_512_RATE];
+    static uint64_t s[25];
+    static uint8_t t[SHA3_512_RATE];
 
     /* Absorb input */
     keccak_absorb(s, SHA3_512_RATE, input, inlen, 0x06);

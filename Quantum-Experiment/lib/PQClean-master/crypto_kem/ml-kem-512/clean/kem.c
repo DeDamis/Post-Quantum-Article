@@ -75,9 +75,9 @@ int PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc_derand(uint8_t *ct,
         uint8_t *ss,
         const uint8_t *pk,
         const uint8_t *coins) {
-    uint8_t buf[2 * KYBER_SYMBYTES];
+    static uint8_t buf[2 * KYBER_SYMBYTES];
     /* Will contain key, coins */
-    uint8_t kr[2 * KYBER_SYMBYTES];
+    static uint8_t kr[2 * KYBER_SYMBYTES];
 
     memcpy(buf, coins, KYBER_SYMBYTES);
 
@@ -110,7 +110,7 @@ int PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc_derand(uint8_t *ct,
 int PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc(uint8_t *ct,
         uint8_t *ss,
         const uint8_t *pk) {
-    uint8_t coins[KYBER_SYMBYTES];
+    static uint8_t coins[KYBER_SYMBYTES];
     randombytes(coins, KYBER_SYMBYTES);
     PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc_derand(ct, ss, pk, coins);
     return 0;
