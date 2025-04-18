@@ -26,6 +26,8 @@
 
 using namespace std;
 
+const int MAX_MSG = 2048;
+
 static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
 
 int main()
@@ -123,7 +125,7 @@ int main()
 
 		// 6. Communicate with the client as long as they send data or remain connected
 		while (true) {
-			char buffer[1024];
+			char buffer[MAX_MSG];
 			memset(buffer, 0, sizeof(buffer));
 
 			int bytesRead = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
@@ -266,6 +268,8 @@ int main()
 					string combinedMessage = replyPlain + "|signature:" + signatureHex;
 
 					int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(signature, sigLen, reinterpret_cast<const uint8_t*>(replyPlain.data()), replyPlain.size(), pk);
+
+					//cout << ret << endl;
 
 					// Send the combined reply+signature to the client
 					int sendResult = send(clientSocket,
