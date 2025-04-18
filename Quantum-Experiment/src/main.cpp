@@ -321,14 +321,8 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     system_soft_wdt_stop(); // TODO CHECK
 
     unsigned long t0 = millis();
-    int ret = 0;
-    /*
-    PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(
-        sig, strlen(signatureHex) / 2,
-        reinterpret_cast<const uint8_t*>(message),
-        strlen(message),
-        pk);
-        */
+    int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(sig, strlen(signatureHex) / 2,
+        reinterpret_cast<const uint8_t*>(message), strlen(message), pk);
     unsigned long dt = millis() - t0;
 
     // ** Restart the hardware watchdog **
