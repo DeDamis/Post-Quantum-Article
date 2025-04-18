@@ -94,11 +94,7 @@ bool connectToServer()
 
     // Allocate a response buffer from the heap.
     size_t bufferSize = 5000; // Adjust if necessary
-    char* response = (char*)malloc(bufferSize);
-    if (!response) {
-        Serial.println(F("Failed to allocate memory for response."));
-        return false;
-    }
+    static char response[5000];
 
 // Send message to server
 #ifdef AUTH
@@ -136,7 +132,6 @@ bool connectToServer()
 #endif // AUTH
     Serial.println(F("Closing down TCP connection."));
     client.stop(500);
-    free(response);
     return true;
 }
 
@@ -309,6 +304,7 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
 
     if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
+        free(sig); // <— free on failure
         return false;
     }
 
@@ -323,12 +319,14 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
     if (!pk) {
         Serial.println(F("Failed to allocate memory for pk."));
-        free(sig);
+        free(sig); // <— free the sig too
         return false;
     }
 
     if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));
+        free(sig);
+        free(pk); // <— free both
         return false;
     }
 
@@ -342,23 +340,12 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     Serial.write((uint8_t*)message, msgLen);
     Serial.println();
 
-    delay(1000);
-    // ** Disable ALL WDTs **
-    ESP.wdtDisable(); // TODO CHECK
-
-    // ** Stop both soft & hard WDTs **
-    system_soft_wdt_stop(); // TODO CHECK
+    delay(500);
 
     unsigned long t0 = millis();
     int ret = PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify(sig, strlen(signatureHex) / 2,
         reinterpret_cast<const uint8_t*>(message), strlen(message), pk);
     unsigned long dt = millis() - t0;
-
-    // ** Restart the hardware watchdog **
-    system_soft_wdt_restart(); // TODO CHECK
-
-    // ** Re‑enable hardware & software WDT, give it a 5 s window **
-    ESP.wdtEnable(5000); // TODO CHECK
 
     Serial.printf("verify took %lums\n", dt);
     free(sig);
