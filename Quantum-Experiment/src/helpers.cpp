@@ -13,3 +13,20 @@ bool hexToBytes(const char* hex, uint8_t* out, size_t expectedLen)
     }
     return true;
 }
+
+/* ------------------------------------------------------------------
+ * bytesToHex : converts a byte array to an uppercase HEX String
+ * ------------------------------------------------------------------ */
+
+bool bytesToHex(const uint8_t* in, size_t len, char* out, size_t outSize)
+{
+    if (outSize < (len * 2 + 1))
+        return false; // not enough space
+    static const char hexChars[] = "0123456789ABCDEF";
+    for (size_t i = 0; i < len; ++i) {
+        out[2 * i] = hexChars[in[i] >> 4];
+        out[2 * i + 1] = hexChars[in[i] & 0x0F];
+    }
+    out[len * 2] = '\0';
+    return true;
+}
