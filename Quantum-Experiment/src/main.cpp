@@ -7,9 +7,9 @@
 const char* serverIP = "192.168.238.1"; // Example IP
 const uint16_t serverPort = 8080; // Example port
 
-#define KEM
-// #define AES
-// #define AUTH
+// #define KEM
+//  #define AES
+#define AUTH
 
 /* Error if both KEM and AUTH are enabled */
 #if defined(KEM) && defined(AUTH)
@@ -323,6 +323,7 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
     uint8_t* pk = (uint8_t*)malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES) * sizeof(uint8_t));
     if (!pk) {
         Serial.println(F("Failed to allocate memory for pk."));
+        free(sig);
         return false;
     }
 
@@ -384,7 +385,7 @@ void processResponse(char* buffer, size_t bufferSize)
     while ((millis() - start) < 5000) {
         while (client.available()) {
             char c = client.read();
-            Serial.print(c); // Optional: echo data
+            // Serial.print(c); // Optional: echo data
             if (index < (bufferSize - 1)) { // leave room for null terminator
                 buffer[index++] = c;
             }

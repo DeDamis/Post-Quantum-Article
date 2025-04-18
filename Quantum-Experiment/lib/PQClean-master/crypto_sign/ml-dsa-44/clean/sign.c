@@ -258,7 +258,7 @@ int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
     static uint8_t mu[CRHBYTES];
     static uint8_t c[CTILDEBYTES];
     static uint8_t c2[CTILDEBYTES];
-    static poly cp;
+    poly cp;
     static polyvecl mat[K], z;
     static polyveck t1, w1, h;
     static shake256incctx state;
