@@ -4,8 +4,11 @@
 #include "helpers.hpp"
 
 // hard-coded server’s IP address and port
-const char* serverIP = "192.168.50.44"; // Example IP
+const char* serverIP = "192.168.1.22"; // Example IP
 const uint16_t serverPort = 8080; // Example port
+
+// Global variable for the kem shared secret, that is used as secret key for AES encryption
+static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
 
 void setup()
 {
@@ -16,16 +19,6 @@ void setup()
     // Try to connect to Wi-Fi
     // wifiConnection = establishWifiConnection();
 
-    static char* test[PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES];
-
-    /*
-    char* publicKeyBuffer = (char*) malloc((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2 + 1)*sizeof(char));
-    strcpy_P(publicKeyBuffer, dilithiumPublicKey);
-    Serial.println(F("Server' Public Key:");
-    Serial.println(publicKeyBuffer);
-    Serial.println();
-    free(publicKeyBuffer);
-    */
     Serial.print("Free heap: ");
     Serial.println(ESP.getFreeHeap());
 }
@@ -39,9 +32,9 @@ void loop()
     }
 
     // If Wi-Fi is connected, check if we can connect to the server
-    // (Optionally, you can wrap this in a condition so it only attempts once or on demand.)
     if (millis() > (tcp_delay + 10000)) {
         if (wifiConnection && !client.connected()) {
+            // Proceed with a handshake
             connectToServer();
         }
         tcp_delay = millis();
@@ -105,9 +98,75 @@ bool connectToServer()
         processResponse(response, bufferSize);
         Serial.println(); // Newline for clarity
         Serial.println(response); // Debug print complete response
+        processKem(response, bufferSize);
+        // send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
     }
     client.stop(200);
     free(response);
+    return true;
+}
+
+bool processKem(char* message, size_t bufferSize)
+{
+    const char* prefix = "KemInit:";
+    const size_t prefixLen = strlen(prefix);
+    /* --- 1. sanity‑check prefix ------------------------------------ */
+    if (strncmp(message, prefix, prefixLen) != 0) {
+        Serial.println(F("Wrong control word received. Expected KemInit."));
+        return false;
+    }
+
+    /* --- 2. locate and length‑check pkHEX -------------------------- */
+    char* pkHex = message + prefixLen; // pointer to first hex digit
+    size_t pkHexLen = strlen(pkHex);
+    const size_t pkBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_PUBLICKEYBYTES;
+    if (pkHexLen != pkBytes * 2) { // must be 800 × 2 = 1600 hex
+        Serial.println(F("KEM: pk hex length mismatch"));
+        return false;
+    }
+
+    /* --- 3. hex → raw public key ----------------------------------- */
+    static uint8_t pk[pkBytes];
+    if (!hexToBytes(pkHex, pk, pkBytes)) {
+        Serial.println(F("KEM: pk hex decode failed"));
+        return false;
+    }
+
+    /* --- 4. encapsulate  ------------------------------------------- */
+    const size_t ctBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES;
+    uint8_t ct[ctBytes];
+    if (PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc(ct, kem_shared_secret, pk) != 0) {
+        Serial.println(F("KEM: kem_enc failed"));
+        return false;
+    }
+
+    /* --- 5. ciphertext → hex --------------------------------------- */
+    static char ctHex[ctBytes * 2 + 1]; // 1537 bytes
+    if (!bytesToHex(ct, ctBytes, ctHex, sizeof(ctHex))) {
+        Serial.println(F("KEM: bytesToHex failed"));
+        return false;
+    }
+
+    const char* ctPrefix = "KemCipher:";
+    size_t needed = strlen(ctPrefix) + strlen(ctHex) + 1;
+
+    if (needed > bufferSize) { // guard overflow
+        Serial.println(F("KEM: buffer too small"));
+        return false;
+    }
+
+    /* --- 6. overwrite original buffer ------------------------------ */
+    strcpy(message, ctPrefix);
+    strcat(message, ctHex);
+
+    Serial.println(F("KEM: encapsulation OK"));
+    Serial.print(F("Shared‑secret first 8 bytes: "));
+    for (int i = 0; i < 8; ++i) {
+        if (kem_shared_secret[i] < 0x10)
+            Serial.print('0');
+        Serial.print(kem_shared_secret[i], HEX);
+    }
+    Serial.println();
     return true;
 }
 

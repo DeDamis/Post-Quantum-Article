@@ -5,6 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include "aes.h"
 #include "crypto_kem/ml-kem-512/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
 #include "crypto_sign/ml-dsa-44/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
 #ifdef __cplusplus
@@ -27,6 +28,8 @@ static const int SIG_INVALID = -1;
 bool connectToServer();
 
 void processResponse(char* buffer, size_t bufferSize);
+
+bool processKem(char* message, size_t bufferSize);
 
 bool checkResponseLength(char* response, size_t expectedLength);
 
