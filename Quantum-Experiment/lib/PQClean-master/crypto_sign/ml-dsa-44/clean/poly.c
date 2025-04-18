@@ -18,7 +18,7 @@
 * Arguments:   - poly *a: pointer to input/output polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_reduce(poly *a) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -37,7 +37,7 @@ void PQCLEAN_MLDSA44_CLEAN_poly_reduce(poly *a) {
 * Arguments:   - poly *a: pointer to input/output polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_caddq(poly *a) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -57,7 +57,7 @@ void PQCLEAN_MLDSA44_CLEAN_poly_caddq(poly *a) {
 *              - const poly *b: pointer to second summand
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_add(poly *c, const poly *a, const poly *b)  {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -79,7 +79,7 @@ void PQCLEAN_MLDSA44_CLEAN_poly_add(poly *c, const poly *a, const poly *b)  {
 *                               subtraced from first input polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_sub(poly *c, const poly *a, const poly *b) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -98,7 +98,7 @@ void PQCLEAN_MLDSA44_CLEAN_poly_sub(poly *c, const poly *a, const poly *b) {
 * Arguments:   - poly *a: pointer to input/output polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_shiftl(poly *a) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -153,7 +153,7 @@ void PQCLEAN_MLDSA44_CLEAN_poly_invntt_tomont(poly *a) {
 *              - const poly *b: pointer to second input polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_pointwise_montgomery(poly *c, const poly *a, const poly *b) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -246,7 +246,7 @@ unsigned int PQCLEAN_MLDSA44_CLEAN_poly_make_hint(poly *h, const poly *a0, const
 *              - const poly *h: pointer to input hint polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_use_hint(poly *b, const poly *a, const poly *h) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N; ++i) {
@@ -347,10 +347,10 @@ static unsigned int rej_uniform(int32_t *a,
 void PQCLEAN_MLDSA44_CLEAN_poly_uniform(poly *a,
                                         const uint8_t seed[SEEDBYTES],
                                         uint16_t nonce) {
-    unsigned int i, ctr, off;
-    unsigned int buflen = POLY_UNIFORM_NBLOCKS * STREAM128_BLOCKBYTES;
-    uint8_t buf[POLY_UNIFORM_NBLOCKS * STREAM128_BLOCKBYTES + 2];
-    stream128_state state;
+    static unsigned int i, ctr, off;
+    static unsigned int buflen = POLY_UNIFORM_NBLOCKS * STREAM128_BLOCKBYTES;
+    static uint8_t buf[POLY_UNIFORM_NBLOCKS * STREAM128_BLOCKBYTES + 2];
+    static stream128_state state;
 
     stream128_init(&state, seed, nonce);
     stream128_squeezeblocks(buf, POLY_UNIFORM_NBLOCKS, &state);
@@ -479,9 +479,9 @@ void PQCLEAN_MLDSA44_CLEAN_poly_uniform_gamma1(poly *a,
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_poly_challenge(poly *c, const uint8_t seed[CTILDEBYTES]) {
     unsigned int i, b, pos;
-    uint64_t signs;
-    uint8_t buf[SHAKE256_RATE];
-    shake256incctx state;
+    static uint64_t signs;
+    static uint8_t buf[SHAKE256_RATE];
+    static shake256incctx state;
 
     shake256_inc_init(&state);
     shake256_inc_absorb(&state, seed, CTILDEBYTES);
@@ -592,7 +592,7 @@ void PQCLEAN_MLDSA44_CLEAN_polyeta_unpack(poly *r, const uint8_t *a) {
 *              - const poly *a: pointer to input polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_polyt1_pack(uint8_t *r, const poly *a) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N / 4; ++i) {
@@ -832,7 +832,7 @@ void PQCLEAN_MLDSA44_CLEAN_polyz_unpack(poly *r, const uint8_t *a) {
 *              - const poly *a: pointer to input polynomial
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_polyw1_pack(uint8_t *r, const poly *a) {
-    unsigned int i;
+    static unsigned int i;
     DBENCH_START();
 
     for (i = 0; i < N / 4; ++i) {

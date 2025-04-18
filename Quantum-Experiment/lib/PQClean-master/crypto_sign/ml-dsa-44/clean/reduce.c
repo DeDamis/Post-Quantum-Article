@@ -13,7 +13,7 @@
 * Returns r.
 **************************************************/
 int32_t PQCLEAN_MLDSA44_CLEAN_montgomery_reduce(int64_t a) {
-    int32_t t;
+    static int32_t t;
 
     t = (int32_t)((uint64_t)a * (uint64_t)QINV);
     t = (a - (int64_t)t * Q) >> 32;

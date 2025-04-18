@@ -252,16 +252,16 @@ int PQCLEAN_MLDSA44_CLEAN_crypto_sign_verify_ctx(const uint8_t *sig,
         const uint8_t *ctx,
         size_t ctxlen,
         const uint8_t *pk) {
-    unsigned int i;
+    static unsigned int i;
     static uint8_t buf[K * POLYW1_PACKEDBYTES];
     static uint8_t rho[SEEDBYTES];
     static uint8_t mu[CRHBYTES];
     static uint8_t c[CTILDEBYTES];
     static uint8_t c2[CTILDEBYTES];
-    poly cp;
+    static poly cp;
     static polyvecl mat[K], z;
-    polyveck t1, w1, h;
-    shake256incctx state;
+    static polyveck t1, w1, h;
+    static shake256incctx state;
 
     if (ctxlen > 255 || siglen != PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES) {
         return -1;

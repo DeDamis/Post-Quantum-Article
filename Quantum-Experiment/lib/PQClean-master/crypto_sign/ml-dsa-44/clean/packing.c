@@ -16,7 +16,7 @@
 void PQCLEAN_MLDSA44_CLEAN_pack_pk(uint8_t pk[PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES],
                                    const uint8_t rho[SEEDBYTES],
                                    const polyveck *t1) {
-    unsigned int i;
+    static unsigned int i;
 
     for (i = 0; i < SEEDBYTES; ++i) {
         pk[i] = rho[i];
@@ -216,7 +216,7 @@ int PQCLEAN_MLDSA44_CLEAN_unpack_sig(uint8_t c[CTILDEBYTES],
                                      polyvecl *z,
                                      polyveck *h,
                                      const uint8_t sig[PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES]) {
-    unsigned int i, j, k;
+    static unsigned int i, j, k;
 
     for (i = 0; i < CTILDEBYTES; ++i) {
         c[i] = sig[i];

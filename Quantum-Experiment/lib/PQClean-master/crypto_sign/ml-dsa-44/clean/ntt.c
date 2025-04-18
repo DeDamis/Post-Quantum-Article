@@ -47,8 +47,8 @@ static const int32_t zetas[N] = {
 * Arguments:   - uint32_t p[N]: input/output coefficient array
 **************************************************/
 void PQCLEAN_MLDSA44_CLEAN_ntt(int32_t a[N]) {
-    unsigned int len, start, j, k;
-    int32_t zeta, t;
+    static unsigned int len, start, j, k;
+    static int32_t zeta, t;
 
     k = 0;
     for (len = 128; len > 0; len >>= 1) {

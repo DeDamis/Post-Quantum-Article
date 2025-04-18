@@ -78,7 +78,7 @@ unsigned int PQCLEAN_MLDSA44_CLEAN_make_hint(int32_t a0, int32_t a1) {
 * Returns corrected high bits.
 **************************************************/
 int32_t PQCLEAN_MLDSA44_CLEAN_use_hint(int32_t a, unsigned int hint) {
-    int32_t a0, a1;
+    static int32_t a0, a1;
 
     a1 = PQCLEAN_MLDSA44_CLEAN_decompose(&a0, a);
     if (hint == 0) {

@@ -71,20 +71,20 @@ static const uint64_t KeccakF_RoundConstants[NROUNDS] = {
  * Arguments:   - uint64_t *state: pointer to input/output Keccak state
  **************************************************/
 static void KeccakF1600_StatePermute(uint64_t *state) {
-    int round;
+    static int round;
 
-    uint64_t Aba, Abe, Abi, Abo, Abu;
-    uint64_t Aga, Age, Agi, Ago, Agu;
-    uint64_t Aka, Ake, Aki, Ako, Aku;
-    uint64_t Ama, Ame, Ami, Amo, Amu;
-    uint64_t Asa, Ase, Asi, Aso, Asu;
-    uint64_t BCa, BCe, BCi, BCo, BCu;
-    uint64_t Da, De, Di, Do, Du;
-    uint64_t Eba, Ebe, Ebi, Ebo, Ebu;
-    uint64_t Ega, Ege, Egi, Ego, Egu;
-    uint64_t Eka, Eke, Eki, Eko, Eku;
-    uint64_t Ema, Eme, Emi, Emo, Emu;
-    uint64_t Esa, Ese, Esi, Eso, Esu;
+    static uint64_t Aba, Abe, Abi, Abo, Abu;
+    static uint64_t Aga, Age, Agi, Ago, Agu;
+    static uint64_t Aka, Ake, Aki, Ako, Aku;
+    static uint64_t Ama, Ame, Ami, Amo, Amu;
+    static uint64_t Asa, Ase, Asi, Aso, Asu;
+    static uint64_t BCa, BCe, BCi, BCo, BCu;
+    static uint64_t Da, De, Di, Do, Du;
+    static uint64_t Eba, Ebe, Ebi, Ebo, Ebu;
+    static uint64_t Ega, Ege, Egi, Ego, Egu;
+    static uint64_t Eka, Eke, Eki, Eko, Eku;
+    static uint64_t Ema, Eme, Emi, Emo, Emu;
+    static uint64_t Esa, Ese, Esi, Eso, Esu;
 
     // copyFromState(A, state)
     Aba = state[0];
@@ -415,7 +415,7 @@ static void keccak_squeezeblocks(uint8_t *h, size_t nblocks,
  *                that have not been permuted, or not-yet-squeezed bytes.
  **************************************************/
 static void keccak_inc_init(uint64_t *s_inc) {
-    size_t i;
+    static size_t i;
 
     for (i = 0; i < 25; ++i) {
         s_inc[i] = 0;
@@ -439,7 +439,7 @@ static void keccak_inc_init(uint64_t *s_inc) {
  **************************************************/
 static void keccak_inc_absorb(uint64_t *s_inc, uint32_t r, const uint8_t *m,
                               size_t mlen) {
-    size_t i;
+    static size_t i;
 
     /* Recall that s_inc[25] is the non-absorbed bytes xored into the state */
     while (mlen + s_inc[25] >= r) {
@@ -728,7 +728,7 @@ void shake256(uint8_t *output, size_t outlen,
     size_t nblocks = outlen / SHAKE256_RATE;
     static uint8_t t[SHAKE256_RATE];
     //uint8_t* t = (uint8_t*)malloc((SHAKE256_RATE) * sizeof(uint8_t));
-    shake256ctx s;
+    static shake256ctx s;
 
     shake256_absorb(&s, input, inlen);
     shake256_squeezeblocks(output, nblocks, &s);
