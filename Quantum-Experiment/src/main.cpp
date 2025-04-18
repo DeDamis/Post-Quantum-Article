@@ -7,8 +7,14 @@
 const char* serverIP = "192.168.238.1"; // Example IP
 const uint16_t serverPort = 8080; // Example port
 
+#define KEM
+#define AES
+// #define AUTH
+
 // Global variable for the kem shared secret, that is used as secret key for AES encryption
+#ifdef KEM
 static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
+#endif
 
 void setup()
 {
@@ -20,7 +26,7 @@ void setup()
     // Try to connect to Wi-Fi
     // wifiConnection = establishWifiConnection();
 
-    Serial.print("Free heap: ");
+    Serial.print(F("Free heap: "));
     Serial.println(ESP.getFreeHeap());
 }
 
@@ -57,7 +63,7 @@ void loop()
 
 bool connectToServer()
 {
-    Serial.print("Free heap: ");
+    Serial.print(F("Free heap: "));
     Serial.println(ESP.getFreeHeap());
 
     Serial.println();
@@ -74,45 +80,58 @@ bool connectToServer()
 
     Serial.println(F("TCP connection successful!"));
 
-    // Send message to server
-    client.println("AuthRequest");
-    delay(500);
-
     // Receive a message in a format of
     // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
 
     // Allocate a response buffer from the heap.
-    size_t bufferSize = 7000; // Adjust if necessary
+    size_t bufferSize = 7000; // Adjust if necessary //TODO REDUCE
     char* response = (char*)malloc(bufferSize);
     if (!response) {
         Serial.println(F("Failed to allocate memory for response."));
         return false;
     }
 
+// Send message to server
+#ifdef AUTH
+    Serial.println(F("->Server:AuthRequest"));
+    client.println("AuthRequest");
+    delay(500);
     processResponse(response, bufferSize);
-
     checkResponseLength(response, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
 
-    // We should fix the signing check first
-    if (processAuthReply(response)) { // Server signature valid
-        Serial.println(F("Sig valid. Continuing.."));
-        Serial.print("Free heap: ");
-        Serial.println(ESP.getFreeHeap());
+    if (processAuthReply(response)) {
+        Serial.println(F("Server Signature valid. Continuing.."));
+        Serial.println(F("->Server:Ack"));
         client.println("Ack");
         delay(500);
+#endif // AUTH
+        Serial.print(F("Free heap: "));
+        Serial.println(ESP.getFreeHeap());
+
+#ifdef KEM
         // Proceed with KEM Request
+        Serial.println(F("->Server:KemRequest"));
         client.println("KemRequest");
         delay(500);
         processResponse(response, bufferSize);
-        // processKem(response, bufferSize);
-        // client.println(response);
-        //    send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
+        processKem(response, bufferSize);
+        Serial.println(F("->Server:KemCipher"));
+        client.println(response);
+#endif // KEM
+//    send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
+#ifdef AES
+#warning Unfortunatelly AES encryption was not implementd.
+#endif // AES
+#ifdef AUTH
     }
-    client.abort();
+#endif // AUTH
+    Serial.println(F("Closing down TCP connection."));
+    client.stop(500);
     free(response);
     return true;
 }
 
+#ifdef KEM
 bool processKem(char* message, size_t bufferSize)
 {
     const char* prefix = "KemInit:";
@@ -184,8 +203,9 @@ bool processKem(char* message, size_t bufferSize)
     Serial.println();
     return true;
 }
+#endif // KEM
 
-//
+#ifdef AUTH
 // processAuthReply: parse the raw response (which uses no extra copies)
 // Expected response format (in the same buffer):
 // "AuthReply:<timestamp>|signature:<hexsignature>"
@@ -340,6 +360,8 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 }
+
+#endif // AUTH
 
 void processResponse(char* buffer, size_t bufferSize)
 {
