@@ -1,30 +1,10 @@
-#include "ML_DSA_PublicKey.hpp"
-#include "WifiManagement.hpp"
-#include "config.hpp"
-#include "helpers.hpp"
-
-// hard-coded server’s IP address and port
-const char* serverIP = "192.168.238.1"; // Example IP
-const uint16_t serverPort = 8080; // Example port
+#include "main.hpp"
+#include "Utils.hpp"
+#include "user-config.hpp"
 
 // #define KEM
-//  #define AES
+// #define AES
 #define AUTH
-
-/* Error if both KEM and AUTH are enabled */
-#if defined(KEM) && defined(AUTH)
-#error "Both KEM and AUTH (Digital Signature) won't fit within the board's RAM"
-#endif
-
-/* Error if AES is enabled without KEM */
-#if defined(AES) && !defined(KEM)
-#error "AES won't work without KEM."
-#endif
-
-// Global variable for the kem shared secret, that is used as secret key for AES encryption
-#ifdef KEM
-static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
-#endif
 
 void setup()
 {
@@ -32,10 +12,7 @@ void setup()
     delay(200); // Let the serial line settle
     Serial.println(F("Booting up..."));
 
-    // Try to connect to Wi-Fi
-    // wifiConnection = establishWifiConnection();
-
-    Serial.print(F("Free heap: "));
+    Serial.print(F("Free heap after startup: "));
     Serial.println(ESP.getFreeHeap());
 }
 
@@ -59,20 +36,18 @@ void loop()
     if (!wifiConnection) { // Kontrola připojení Wifi. Pokud není připojení aktivní, dojde ke kontrole aktuálního stavu
         if (WiFi.status() == WL_CONNECTED) {
             wifiConnection = true; // Stav Wifi připojení se změní na funkční
-            getWifiInfo(); // Funkce vypíše informace o Wifi připojení
+            Utils::getWifiInfo(); // Funkce vypíše informace o Wifi připojení
         }
         if (!wifiConnection && (millis() > WiFi_retry_delay + 10000)) {
-            wifiConnection = establishWifiConnection();
-            // listAvailableNetworks();
+            wifiConnection = Utils::establishWifiConnection(ssid, password);
             WiFi_retry_delay = millis();
-            // Serial.println(WiFi.status());
         }
     }
 }
 
 bool connectToServer()
 {
-    Serial.print(F("Free heap: "));
+    Serial.print(F("Free heap before TCP: "));
     Serial.println(ESP.getFreeHeap());
 
     Serial.println();
@@ -86,31 +61,26 @@ bool connectToServer()
         Serial.println(F("TCP connection failed."));
         return false;
     }
-
     Serial.println(F("TCP connection successful!"));
 
-    // Receive a message in a format of
-    // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
-
     // Allocate a response buffer from the heap.
-    size_t bufferSize = 5000; // Adjust if necessary
     static char response[5000];
 
-// Send message to server
 #ifdef AUTH
     Serial.println(F("->Server:AuthRequest"));
     client.println("AuthRequest");
     delay(500);
+    // Receive a message in a format of
+    // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
     processResponse(response, bufferSize);
     checkResponseLength(response, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
-
     if (processAuthReply(response)) {
         Serial.println(F("Server Signature valid. Continuing.."));
         Serial.println(F("->Server:Ack"));
         client.println("Ack");
         delay(500);
 #endif // AUTH
-        Serial.print(F("Free heap: "));
+        Serial.print(F("Free heap after signature validation: "));
         Serial.println(ESP.getFreeHeap());
 
 #ifdef KEM
@@ -157,7 +127,7 @@ bool processKem(char* message, size_t bufferSize)
     yield();
     /* --- 3. hex → raw public key ----------------------------------- */
     static uint8_t pk[pkBytes];
-    if (!hexToBytes(pkHex, pk, pkBytes)) {
+    if (!Utils::hexToBytes(pkHex, pk, pkBytes)) {
         Serial.println(F("KEM: pk hex decode failed"));
         return false;
     }
@@ -178,7 +148,7 @@ bool processKem(char* message, size_t bufferSize)
     yield();
     // --- 5. ciphertext → hex ---------------------------------------
     static char ctHex[ctBytes * 2 + 1]; // 1537 bytes
-    if (!bytesToHex(ct, ctBytes, ctHex, sizeof(ctHex))) {
+    if (!Utils::bytesToHex(ct, ctBytes, ctHex, sizeof(ctHex))) {
         Serial.println(F("KEM: bytesToHex failed"));
         return false;
     }
@@ -302,7 +272,7 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 
-    if (!hexToBytes(signatureHex, sig, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES)) {
+    if (!Utils::hexToBytes(signatureHex, sig, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES)) {
         Serial.println(F("Signature hex decode failed."));
         free(sig); // <— free on failure
         return false;
@@ -323,7 +293,7 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
         return false;
     }
 
-    if (!hexToBytes(pkHex, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
+    if (!Utils::hexToBytes(pkHex, pk, PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES)) {
         Serial.println(F("Public key hex decode failed."));
         free(sig);
         free(pk); // <— free both

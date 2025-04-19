@@ -2,24 +2,23 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 
-#ifdef __cplusplus
 extern "C" {
-#endif
 #include "aes.h"
 #include "crypto_kem/ml-kem-512/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
 #include "crypto_sign/ml-dsa-44/clean/api.h" // PQCLEAN_MLDSA44_CLEAN_* function declarations
-#ifdef __cplusplus
 }
+
+// Global variable for the kem shared secret, that is used as secret key for AES encryption
+#ifdef KEM
+static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
 #endif
 
 // Create a global WiFiClient object to manage the TCP connection
 WiFiClient client;
 
-bool wifiConnection = false;
+size_t bufferSize = 5000; // Buffer size for the tcp message readout
 
-uint32_t report_delay = 500;
-uint32_t tcp_delay = 5000;
-uint32_t WiFi_retry_delay = 10000;
+bool wifiConnection = false;
 
 static const int SIG_VALID = 0;
 static const int SIG_INVALID = -1;
