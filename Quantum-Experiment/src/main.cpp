@@ -3,9 +3,14 @@
 #include "user-config.hpp"
 
 // ------- Uncomment one to enable feature ------- //
-// #define KEM
-// #define AES
-#define AUTH
+#define KEM
+#define AES
+// #define AUTH
+
+/** Shared secret from KEM, used as AES key. */
+#ifdef KEM
+static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
+#endif
 
 // Application entrypoint: initialize serial for debugging.
 void setup()
@@ -113,8 +118,47 @@ bool connectToServer()
 #endif // KEM
 
 #ifdef AES
-#warning "AES encryption not implemented."     // send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
-#endif
+    // 1) Prepare AES‑256 key (first 32 bytes of KEM secret)
+    static aes256ctx aes_ctx;
+    aes256_ctr_keyexp(&aes_ctx, kem_shared_secret);
+
+    // 2) Generate a random 12‑byte IV
+    randomSeed(micros());
+    static uint8_t iv[AESCTR_NONCEBYTES];
+    for (size_t i = 0; i < AESCTR_NONCEBYTES; i++) {
+        iv[i] = (uint8_t)random(0, 256);
+    }
+
+    // 3) Encrypt the message
+    const char* plaintext = "Post-Quantum Cryptography is Awesome.";
+    size_t pt_len = strlen(plaintext);
+    //  Generate keystream
+    static std::vector<uint8_t> keystream(pt_len);
+    aes256_ctr(keystream.data(), pt_len, iv, &aes_ctx);
+
+    // XOR plaintext with keystream to get ciphertext
+    static std::vector<uint8_t> ciphertext(pt_len);
+    for (size_t i = 0; i < pt_len; ++i) {
+        ciphertext[i] = uint8_t(plaintext[i]) ^ keystream[i];
+    }
+
+    // 4) Convert IV and ciphertext to hex
+    char ivHex[AESCTR_NONCEBYTES * 2 + 1], ctHex[pt_len * 2 + 1];
+    Utils::bytesToHex(iv, AESCTR_NONCEBYTES, ivHex, sizeof(ivHex));
+    Utils::bytesToHex(ciphertext.data(), pt_len, ctHex, sizeof(ctHex));
+
+    // 5) Send as: ConfidentialData:<IV_HEX>:<CIPHER_HEX>
+    Serial.println(F("-> Sending ConfidentialData"));
+    static char sendBuf[AESCTR_NONCEBYTES * 2 + /*":"*/ 1 + /*message hex up to ~64*/ 200 + /*prefix*/ 16 + /*null*/ 1];
+    int len = snprintf(sendBuf, sizeof(sendBuf), "ConfidentialData:%s:%s", ivHex, ctHex);
+    if (len > 0 && len < (int)sizeof(sendBuf)) {
+        client.println(sendBuf);
+    } else {
+        Serial.println(F("AES: sendBuf overflow"));
+    }
+    // 6) Clean up AES context
+    aes256_ctx_release(&aes_ctx);
+#endif // AES
 
     // Close TCP connection
     Serial.println(F("Closing TCP connection."));

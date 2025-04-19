@@ -8,11 +8,6 @@ extern "C" {
 #include "crypto_sign/ml-dsa-44/clean/api.h" // ML-DSA signatures
 }
 
-/** Shared secret from KEM, used as AES key. */
-#ifdef KEM
-static uint8_t kem_shared_secret[PQCLEAN_MLKEM512_CLEAN_CRYPTO_BYTES];
-#endif
-
 WiFiClient client;
 size_t bufferSize = 5000; // Buffer size for the tcp message readout
 bool wifiConnection = false;
