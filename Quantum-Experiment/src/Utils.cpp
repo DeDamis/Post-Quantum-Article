@@ -3,7 +3,13 @@
 namespace Utils {
 
 // ── hexToBytes ─────────────────────────────────────────────────────
-
+/**
+ * @brief Convert a hex string to bytes.
+ * @param hex       Input hex (length == expectedLen*2).
+ * @param out       Output buffer.
+ * @param expectedLen  Number of bytes expected.
+ * @return true if successful.
+ */
 bool hexToBytes(const char* hex, uint8_t* out, size_t expectedLen)
 {
     size_t hexLen = strlen(hex);
@@ -17,7 +23,12 @@ bool hexToBytes(const char* hex, uint8_t* out, size_t expectedLen)
 }
 
 // ── bytesToHex ─────────────────────────────────────────────────────
-
+/**
+ * @brief Convert bytes to uppercase hex string.
+ * @param in       Input bytes.
+ * @param len      Number of bytes.
+ * @param out      Output buffer (size >= len*2+1).
+ */
 bool bytesToHex(const uint8_t* in, size_t len, char* out, size_t outSize)
 {
     if (outSize < (len * 2 + 1))
@@ -32,7 +43,7 @@ bool bytesToHex(const uint8_t* in, size_t len, char* out, size_t outSize)
 }
 
 // ── establishWifiConnection ─────────────────────────────────────────
-
+/** Connect to Wi‑Fi once; returns connected status. */
 bool establishWifiConnection(const char* ssid, const char* password)
 {
     Serial.println();
@@ -50,7 +61,7 @@ bool establishWifiConnection(const char* ssid, const char* password)
 }
 
 // ── getWifiInfo ─────────────────────────────────────────────────────
-
+/** Print IP and link status over Serial. */
 void getWifiInfo()
 {
     Serial.println(F("\nWiFi connected"));
@@ -60,7 +71,7 @@ void getWifiInfo()
 }
 
 // ── listAvailableNetworks ───────────────────────────────────────────
-
+/** Scan for and list available SSIDs. */
 void listAvailableNetworks()
 {
     Serial.println(F("Scanning for networks..."));

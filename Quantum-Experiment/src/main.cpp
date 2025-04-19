@@ -2,10 +2,12 @@
 #include "Utils.hpp"
 #include "user-config.hpp"
 
+// ------- Uncomment one to enable feature ------- //
 // #define KEM
 // #define AES
 #define AUTH
 
+// Application entrypoint: initialize serial for debugging.
 void setup()
 {
     Serial.begin(115200); // Start serial for debug output
@@ -16,35 +18,44 @@ void setup()
     Serial.println(ESP.getFreeHeap());
 }
 
+/**
+ * @brief Main loop:
+ *  - Periodically report status
+ *  - Maintain Wi-Fi connection
+ *  - Trigger TCP handshake when appropriate
+ */
 void loop()
 {
-    // Periodically report status
-    if (millis() > (report_delay + 2000)) {
+    // Report status every ~2 seconds
+    if (millis() > (report_stamp + report_delay)) {
         Serial.println(F("Running.."));
-        report_delay = millis();
+        report_stamp = millis();
     }
 
-    // If Wi-Fi is connected, check if we can connect to the server
-    if (millis() > (tcp_delay + 10000)) {
+    // Every ~10 seconds, if Wi-Fi is connected, initiate TCP handshake
+    if (millis() > (tcp_stamp + tcp_delay)) {
         if (wifiConnection && !client.connected()) {
-            // Proceed with a handshake
-            connectToServer();
+            connectToServer(); // Perform TCP and protocol exchange
         }
-        tcp_delay = millis();
+        tcp_stamp = millis();
     }
 
-    if (!wifiConnection) { // Kontrola připojení Wifi. Pokud není připojení aktivní, dojde ke kontrole aktuálního stavu
+    // Ensure Wi-Fi remains connected; retry every ~10 seconds if not
+    if (!wifiConnection) {
         if (WiFi.status() == WL_CONNECTED) {
-            wifiConnection = true; // Stav Wifi připojení se změní na funkční
-            Utils::getWifiInfo(); // Funkce vypíše informace o Wifi připojení
-        }
-        if (!wifiConnection && (millis() > WiFi_retry_delay + 10000)) {
+            wifiConnection = true;
+            Utils::getWifiInfo(); // Print IP and connection details
+        } else if (millis() > WiFi_retry + WiFi_retry_delay) {
             wifiConnection = Utils::establishWifiConnection(ssid, password);
-            WiFi_retry_delay = millis();
+            WiFi_retry = millis();
         }
     }
 }
 
+/**
+ * @brief Establish a TCP connection and perform handshake (Auth/KEM/AES).
+ * @return true if handshake succeeds, false otherwise.
+ */
 bool connectToServer()
 {
     Serial.print(F("Free heap before TCP: "));
@@ -56,115 +67,128 @@ bool connectToServer()
     Serial.print(F(":"));
     Serial.println(serverPort);
 
-    // Attempt to connect
+    // Attempt to connect to server
     if (!client.connect(serverIP, serverPort)) {
         Serial.println(F("TCP connection failed."));
         return false;
     }
     Serial.println(F("TCP connection successful!"));
 
-    // Allocate a response buffer from the heap.
-    static char response[5000];
+    static char response[5000]; // Buffer for server replies
 
 #ifdef AUTH
-    Serial.println(F("->Server:AuthRequest"));
+    // Send authentication request
+    Serial.println(F("-> AuthRequest"));
     client.println("AuthRequest");
     delay(500);
-    // Receive a message in a format of
-    // AuthReply:[UNIX timestamp]|signature:[ML-DSA-Signature]
+
+    // Receive and verify auth reply: "AuthReply:<timestamp>|signature:<hex>"
     processResponse(response, bufferSize);
     checkResponseLength(response, PQCLEAN_MLDSA44_CLEAN_CRYPTO_BYTES);
+
     if (processAuthReply(response)) {
-        Serial.println(F("Server Signature valid. Continuing.."));
-        Serial.println(F("->Server:Ack"));
+        Serial.println(F("Signature valid, sending Ack"));
         client.println("Ack");
         delay(500);
-#endif // AUTH
-        Serial.print(F("Free heap after signature validation: "));
-        Serial.println(ESP.getFreeHeap());
 
-#ifdef KEM
-        // Proceed with KEM Request
-        Serial.println(F("->Server:KemRequest"));
-        client.println("KemRequest");
-        delay(500);
-        processResponse(response, bufferSize);
-        processKem(response, bufferSize);
-        Serial.println(F("->Server:KemCipher"));
-        client.println(response);
-#endif // KEM
-//    send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
-#ifdef AES
-#warning Unfortunatelly AES encryption was not implementd.
-#endif // AES
-#ifdef AUTH
+        Serial.print(F("Heap after auth: "));
+        Serial.println(ESP.getFreeHeap());
+    } else {
+        client.stop(500);
+        return false;
     }
 #endif // AUTH
-    Serial.println(F("Closing down TCP connection."));
+
+#ifdef KEM
+    // Request and process KEM encapsulation
+    Serial.println(F("-> KemRequest"));
+    client.println("KemRequest");
+    delay(500);
+
+    processResponse(response, bufferSize);
+    processKem(response, bufferSize);
+
+    Serial.println(F("-> Sending KemCipher"));
+    client.println(response);
+#endif // KEM
+
+#ifdef AES
+#warning "AES encryption not implemented."     // send an AES-encrypted message to server "Post-Quantum Cryptography is Awesome."
+#endif
+
+    // Close TCP connection
+    Serial.println(F("Closing TCP connection."));
     client.stop(500);
     return true;
 }
 
 #ifdef KEM
+/**
+ * @brief Handle KEM encapsulation protocol.
+ * @param message  Input buffer containing "KemInit:<hex pk>"
+ * @param bufferSize  Size of the buffer
+ * @return true if encapsulation succeeded
+ */
 bool processKem(char* message, size_t bufferSize)
 {
     const char* prefix = "KemInit:";
     const size_t prefixLen = strlen(prefix);
-    /* --- 1. sanity‑check prefix ------------------------------------ */
+
+    // 1) Verify prefix
     if (strncmp(message, prefix, prefixLen) != 0) {
-        Serial.println(F("Wrong control word received. Expected KemInit."));
+        Serial.println(F("KEM: Invalid control word."));
         return false;
     }
     yield();
-    /* --- 2. locate and length‑check pkHEX -------------------------- */
+
+    // 2) Extract and validate public key hex length
     char* pkHex = message + prefixLen; // pointer to first hex digit
     size_t pkHexLen = strlen(pkHex);
     const size_t pkBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_PUBLICKEYBYTES;
     if (pkHexLen != pkBytes * 2) { // must be 800 × 2 = 1600 hex
-        Serial.println(F("KEM: pk hex length mismatch"));
+        Serial.println(F("KEM: Public key length mismatch."));
         return false;
     }
     yield();
-    /* --- 3. hex → raw public key ----------------------------------- */
+
+    // 3) Convert hex to raw public key
     static uint8_t pk[pkBytes];
     if (!Utils::hexToBytes(pkHex, pk, pkBytes)) {
-        Serial.println(F("KEM: pk hex decode failed"));
+        Serial.println(F("KEM: pk hex decode failed."));
         return false;
     }
     yield();
-    /* --- 4. encapsulate  ------------------------------------------- */
+
+    // 4) Encapsulate to produce ciphertext and shared secret
     const size_t ctBytes = PQCLEAN_MLKEM512_CLEAN_CRYPTO_CIPHERTEXTBYTES;
     uint8_t ct[ctBytes];
-
     unsigned long t0 = millis();
-    // I have verified that this will cause the wdt reset
     if (PQCLEAN_MLKEM512_CLEAN_crypto_kem_enc(ct, kem_shared_secret, pk) != 0) {
-        Serial.println(F("KEM: kem_enc failed"));
+        Serial.println(F("KEM: encapsulation failed."));
         return false;
     }
     unsigned long dt = millis() - t0;
-
-    Serial.printf("encapsulation took %lums\n", dt);
+    Serial.printf("Encapsulation took %lums\n", dt);
     yield();
-    // --- 5. ciphertext → hex ---------------------------------------
+
+    // 5) Convert ciphertext to hex
     static char ctHex[ctBytes * 2 + 1]; // 1537 bytes
     if (!Utils::bytesToHex(ct, ctBytes, ctHex, sizeof(ctHex))) {
         Serial.println(F("KEM: bytesToHex failed"));
         return false;
     }
     yield();
+    // 6) Build response "KemCipher:<hex ct>"
     const char* ctPrefix = "KemCipher:";
     size_t needed = strlen(ctPrefix) + strlen(ctHex) + 1;
-
     if (needed > bufferSize) { // guard overflow
         Serial.println(F("KEM: buffer too small"));
         return false;
     }
-    yield();
-    // --- 6. overwrite original buffer ------------------------------
     strcpy(message, ctPrefix);
     strcat(message, ctHex);
     yield();
+
     Serial.println(F("KEM: encapsulation OK"));
     Serial.print(F("Shared‑secret first 8 bytes: "));
     for (int i = 0; i < 8; ++i) {
@@ -179,80 +203,65 @@ bool processKem(char* message, size_t bufferSize)
 #endif // KEM
 
 #ifdef AUTH
-// processAuthReply: parse the raw response (which uses no extra copies)
-// Expected response format (in the same buffer):
-// "AuthReply:<timestamp>|signature:<hexsignature>"
-// Parsing is done in place by replacing delimiters with '\0'
-//
+/**
+ * @brief Parse and validate auth reply in-place.
+ * @param reply  Buffer containing "AuthReply:<timestamp>|signature:<hex>"
+ * @return true if signature is valid
+ */
 bool processAuthReply(char* reply)
 {
-    // Find the first colon. It separates the control word from the timestamp.
+    // Split control word and timestamp
     char* colon1 = strchr(reply, ':');
     if (!colon1) {
-        Serial.println(F("Error: first colon not found."));
+        Serial.println(F("Auth: Missing colon."));
         return false;
     }
     *colon1 = '\0';
-    char* control = reply; // should be "AuthReply"
-
-    // The rest should contain the timestamp followed by a pipe.
+    char* control = reply; // "AuthReply"
     char* rest = colon1 + 1;
+
+    // Split timestamp and signature label
     char* pipePos = strchr(rest, '|');
     if (!pipePos) {
-        Serial.println(F("Error: pipe not found."));
+        Serial.println(F("Auth: Missing pipe."));
         return false;
     }
     *pipePos = '\0';
     char* timestampStr = rest;
-    // Expect the "signature:" label after the pipe.
     const char* sigLabel = "signature:";
-    char* signatureStart = strstr(pipePos + 1, sigLabel);
-    if (!signatureStart) {
-        Serial.println(F("Error: signature label not found."));
+    char* sigHex = strstr(pipePos + 1, sigLabel);
+    if (!sigHex) {
+        Serial.println(F("Auth: Missing signature label."));
         return false;
     }
-    signatureStart += strlen(sigLabel); // Move pointer to start of hex signature
+    sigHex += strlen(sigLabel);
 
-    // Debug print parsed values.
-    /*
-    Serial.println(F("Parsed Values:"));
-    Serial.println(F("Control word: "));
-    Serial.println(control);
-    Serial.println(F("Timestamp: "));
-    Serial.println(timestampStr);
-    Serial.println(F("Signature: "));
-    Serial.println(signatureStart);
-    */
-
-    // Construct the original message that was signed:
-    // "AuthReply:<timestamp>"
-    static char message[100]; // Should be plenty; adjust if needed.
+    // Reconstruct message "AuthReply:<timestamp>"
+    static char message[100];
     snprintf(message, sizeof(message), "%s:%s", control, timestampStr);
-    // Serial.print(F("Message for verification: "));
-    // Serial.println(message);
-    //  Get the public key from PROGMEM (assumed to be defined in dilithiumPublicKey)
+
+    // Load public key from flash and verify
     char* pkHex = (char*)malloc(((PQCLEAN_MLDSA44_CLEAN_CRYPTO_PUBLICKEYBYTES * 2) + 1) * sizeof(char));
     if (!pkHex) {
-        Serial.println(F("Failed to allocate memory for pkHex."));
+        Serial.println(F("Auth: Failed to allocate memory for pkHex."));
         return false;
     }
     strcpy_P(pkHex, dilithiumPublicKey);
 
     // Verify the signature.
-    bool valid = verifyAuthReply(message, signatureStart, pkHex);
+    bool valid = verifyAuthReply(message, sigHex, pkHex);
     free(pkHex);
-    if (valid) {
-        Serial.println(F("Signature is VALID."));
-        return true;
-    } else {
-        Serial.println(F("Signature is INVALID."));
-        return false;
-    }
+    Serial.println(valid ? F("Auth: VALID.") : F("Auth: INVALID."));
+    return valid;
 }
 
-//
-// Verify the signature given the message, signature (in hex)
-// and the public key (in hex). Returns true if valid.
+/**
+ * @brief Verify ML‑DSA signature over message.
+ * @param message      Original message
+ * @param signatureHex Signature in hex
+ * @param pkHex        Public key in hex
+ * @return true if signature valid
+ */
 bool verifyAuthReply(const char* message, const char* signatureHex, const char* pkHex)
 {
     size_t msgLen = strlen(message);
@@ -329,12 +338,14 @@ bool verifyAuthReply(const char* message, const char* signatureHex, const char* 
 
 #endif // AUTH
 
+/**
+ * @brief Read response from server with 5s timeout.
+ * @param buffer      Destination buffer
+ * @param bufferSize  Maximum size including null terminator
+ */
 void processResponse(char* buffer, size_t bufferSize)
 {
-    for (size_t i = 0; i < bufferSize; i++) {
-        buffer[i] = '\0';
-    }
-
+    memset(buffer, 0, bufferSize);
     size_t index = 0;
     unsigned long start = millis();
 
@@ -343,7 +354,7 @@ void processResponse(char* buffer, size_t bufferSize)
         while (client.available()) {
             char c = client.read();
             // Serial.print(c); // Optional: echo data
-            if (index < (bufferSize - 1)) { // leave room for null terminator
+            if (index < (bufferSize - 1)) {
                 buffer[index++] = c;
             }
             start = millis(); // Reset timeout
@@ -355,13 +366,19 @@ void processResponse(char* buffer, size_t bufferSize)
     buffer[index] = '\0'; // Null-terminate the received response
 }
 
+/**
+ * @brief Check that response length meets expectation.
+ * @param response       Null‑terminated response
+ * @param expectedLength Minimum expected length
+ * @return true if length >= expectedLength
+ */
 bool checkResponseLength(char* response, size_t expectedLength)
 {
     if (strlen(response) >= expectedLength) {
         Serial.println(F("Response OK."));
         return true;
     } else {
-        Serial.println(F("Response error. Response is shorter than expected"));
+        Serial.println(F("Response too short."));
         return false;
     }
 }
