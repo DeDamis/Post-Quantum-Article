@@ -6,6 +6,7 @@ extern "C" {
 #include "aes.h" // AES‑256‑CTR
 #include "crypto_kem/ml-kem-512/clean/api.h" // ML-KEM key encapsulation
 #include "crypto_sign/ml-dsa-44/clean/api.h" // ML-DSA signatures
+#include "randombytes.h"
 }
 
 WiFiClient client;

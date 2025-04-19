@@ -178,10 +178,12 @@ int main() {
 					break;
 				}
 				// Step 4: Notify client
+				/*
 				if (send(clientSocket, "LineReady", 9, 0) == SOCKET_ERROR) {
 					cerr << "Error: send(LineReady) failed." << endl;
 					break;
 				}
+				*/
 				cout << "Shared secret established." << endl;
 			}
 			else if (strncmp(msg, prefixAES, strlen(prefixAES)) == 0) {
@@ -221,6 +223,7 @@ int main() {
 				std::cout << "Decrypted message: " << message << std::endl;
 
 				aes256_ctx_release(&aes_ctx);
+				break;
 			}
 			else if (strcmp(msg, prefixAuthRequest) == 0) {
 				// Step 1: Prepare timestamped reply
